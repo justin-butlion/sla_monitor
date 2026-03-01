@@ -1,0 +1,16 @@
+{
+  "name": "slack-sla-monitor",
+  "version": "1.0.0",
+  "description": "Slack app to monitor SLA (reply within N hours) in selected channels",
+  "main": "src/app.js",
+  "scripts": {
+    "start": "node src/app.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "@slack/bolt": "^3.17.0",
+    "pg": "^8.11.3"
+  }
+}

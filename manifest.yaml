@@ -1,0 +1,37 @@
+display_information:
+  name: SLA Monitor
+  description: Monitor channel SLAs and track messages that miss reply deadlines.
+  long_description: "SLA Monitor helps your team stay on top of service level agreements with clients. Add channels to monitor and set an SLA in hours (e.g. 12 hours to reply). The app tracks messages from people outside your workspace in those channels. If a workspace member replies in the thread within the SLA window, the message passes; otherwise it fails. View and manage failed messages in the app home, copy links to messages, and remove them from the list as you resolve them. Only messages sent after a channel is added are checked; changing the SLA affects only new messages."
+  background_color: "#2c5530"
+
+features:
+  app_home:
+    home_tab_enabled: true
+    messages_tab_enabled: false
+    messages_tab_read_only_enabled: false
+  bot_user:
+    display_name: SLA Monitor
+    always_online: false
+
+oauth_config:
+  scopes:
+    bot:
+      - channels:history
+      - channels:read
+      - groups:history
+      - groups:read
+      - users:read
+      - chat:write
+
+settings:
+  event_subscriptions:
+    request_url: "https://YOUR_DEPLOY_URL/slack/events"
+    bot_events:
+      - app_home_opened
+      - message.channels
+      - message.groups
+  interactivity:
+    is_enabled: true
+    request_url: "https://YOUR_DEPLOY_URL/slack/events"
+  socket_mode_enabled: false
+  token_rotation_enabled: false
