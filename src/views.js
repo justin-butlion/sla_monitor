@@ -21,7 +21,7 @@ function howToUseBlocks() {
       type: 'section',
       text: {
         type: 'mrkdwn',
-        text: '• Add channels to monitor and set an SLA (hours to reply).\n• The app tracks messages from people outside your workspace in those channels.\n• If a workspace member replies in the thread within the SLA window, the message passes; otherwise it fails.\n• View and manage failed messages below; remove or copy links as needed.',
+        text: '• Add channels to monitor and set an SLA (hours to reply).\n• The app tracks messages from people outside your workspace in those channels.\n• Add the SLA Monitor app to the channels you want to monitor.\n• If a workspace member replies to the message (in thread) within the SLA window, the message passes; otherwise it fails.\n• View and manage failed messages at the bottom section of this screen.',
       },
     },
   ];
@@ -54,7 +54,7 @@ function channelsSectionBlocks(channels, client, isMemberByChannel = {}) {
       });
       const elements = [];
       if (!isMemberByChannel[ch.channel_id]) {
-        elements.push({ type: 'button', text: { type: 'plain_text', text: 'Add app to channel' }, action_id: 'invite_app_to_channel', value: ch.channel_id, style: 'primary' });
+        elements.push({ type: 'button', text: { type: 'plain_text', text: 'Add app to channel' }, action_id: 'invite_app_to_channel', value: ch.channel_id });
       }
       elements.push({ type: 'button', text: { type: 'plain_text', text: 'Edit SLA' }, action_id: 'edit_sla', value: ch.channel_id });
       elements.push({ type: 'button', text: { type: 'plain_text', text: 'Remove' }, action_id: 'remove_channel', value: ch.channel_id });
