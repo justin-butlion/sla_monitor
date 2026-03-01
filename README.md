@@ -17,7 +17,7 @@ The app supports **multiple workspaces**: each workspace installs the app via OA
 
 1. Go to [api.slack.com/apps](https://api.slack.com/apps) and create a new app (or use an existing one).
 2. Under **OAuth & Permissions**:
-   - Add these **Bot Token Scopes**: `app_home:read`, `app_home:write`, `channels:read`, `groups:read`, `users:read`, `chat:write`.
+   - Add these **Bot Token Scopes**: `channels:history`, `channels:read`, `groups:history`, `groups:read`, `users:read`, `chat:write`.
    - Under **Redirect URLs**, add `https://<your-host>/slack/oauth_redirect` (replace with your deployed URL; for local dev use an ngrok URL).
 3. Under **Basic Information**, note:
    - **Signing Secret**

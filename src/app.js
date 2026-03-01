@@ -3,15 +3,34 @@ const db = require('./db');
 const { registerEventHandlers } = require('./events');
 const { startScheduler } = require('./scheduler');
 
+// OAuth requires these; Bolt will throw a generic error if they're missing
+const signingSecret = process.env.SLACK_SIGNING_SECRET;
+const clientId = process.env.SLACK_CLIENT_ID;
+const clientSecret = process.env.SLACK_CLIENT_SECRET;
+const stateSecret = process.env.SLACK_STATE_SECRET || process.env.SLACK_SIGNING_SECRET;
+
+if (!signingSecret || typeof signingSecret !== 'string') {
+  throw new Error('Missing SLACK_SIGNING_SECRET. Set it in Render Dashboard > Environment.');
+}
+if (!clientId || typeof clientId !== 'string') {
+  throw new Error('Missing SLACK_CLIENT_ID. Set it in Render Dashboard > Environment (Basic Information > App Credentials).');
+}
+if (!clientSecret || typeof clientSecret !== 'string') {
+  throw new Error('Missing SLACK_CLIENT_SECRET. Set it in Render Dashboard > Environment (Basic Information > App Credentials).');
+}
+if (!stateSecret || typeof stateSecret !== 'string') {
+  throw new Error('Missing SLACK_STATE_SECRET (or SLACK_SIGNING_SECRET). Set it in Render Dashboard > Environment.');
+}
+
 const app = new App({
-  signingSecret: process.env.SLACK_SIGNING_SECRET,
-  clientId: process.env.SLACK_CLIENT_ID,
-  clientSecret: process.env.SLACK_CLIENT_SECRET,
-  stateSecret: process.env.SLACK_STATE_SECRET || process.env.SLACK_SIGNING_SECRET,
+  signingSecret,
+  clientId,
+  clientSecret,
+  stateSecret,
   scopes: [
-    'app_home:read',
-    'app_home:write',
+    'channels:history',
     'channels:read',
+    'groups:history',
     'groups:read',
     'users:read',
     'chat:write',
