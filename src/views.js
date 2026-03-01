@@ -99,13 +99,37 @@ function failedMessagesBlocks(failed, userNames) {
   return blocks;
 }
 
-/** Resolve channel names for display */
-async function resolveChannelNames(client, channelIds) {
+/** Build id -> name map from conversations.list (public + private bot is in); more reliable than info per channel */
+async function resolveChannelNamesFromList(client) {
   const names = {};
+  const types = ['public_channel', 'private_channel'];
+  let cursor = undefined;
+  do {
+    const r = await client.conversations.list({
+      types: types.join(','),
+      limit: 200,
+      exclude_archived: true,
+      cursor,
+    });
+    const channels = r.channels || [];
+    for (const ch of channels) {
+      if (ch.id && ch.name) names[ch.id] = ch.name;
+    }
+    cursor = r.response_metadata?.next_cursor;
+  } while (cursor);
+  return names;
+}
+
+/** Resolve channel names: use list first, then conversations.info for any missing */
+async function resolveChannelNames(client, channelIds) {
+  const names = await resolveChannelNamesFromList(client);
   for (const id of channelIds) {
+    if (names[id]) continue;
     try {
       const r = await client.conversations.info({ channel: id });
-      names[id] = r.channel?.name || id;
+      const name = r.channel?.name;
+      if (name) names[id] = name;
+      else names[id] = id;
     } catch {
       names[id] = id;
     }
