@@ -56,9 +56,16 @@ function registerEventHandlers(app) {
     const configs = await db.getCurrentChannelConfigs();
     const current = configs.find((c) => c.channel_id === channelId);
     const currentSla = current ? current.sla_hours : 12;
+    let channelName = null;
+    try {
+      const r = await client.conversations.info({ channel: channelId });
+      channelName = r.channel?.name || null;
+    } catch {
+      // keep channelName null, modal will show channel_id
+    }
     await client.views.open({
       trigger_id: body.trigger_id,
-      view: views.editSlaModal(channelId, currentSla),
+      view: views.editSlaModal(channelId, channelName, currentSla),
     });
   });
 
@@ -130,6 +137,11 @@ function registerEventHandlers(app) {
     }
     if (slaHours === null) {
       await ack({ response_action: 'errors', errors: { sla_block: 'Enter a whole number 1 or greater.' } });
+      return;
+    }
+    const existing = await db.getCurrentChannelConfigs();
+    if (existing.some((c) => c.channel_id === channelId)) {
+      await ack({ response_action: 'errors', errors: { channel_block: 'This channel is already being monitored. Choose a different channel.' } });
       return;
     }
     await ack();

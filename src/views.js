@@ -183,8 +183,9 @@ function addChannelModal() {
   };
 }
 
-/** Modal: Edit SLA (channel_id in private_metadata) */
-function editSlaModal(channelId, currentSla) {
+/** Modal: Edit SLA (channel_id in private_metadata; channel name shown read-only) */
+function editSlaModal(channelId, channelName, currentSla) {
+  const displayName = channelName ? `#${channelName}` : channelId;
   return {
     type: 'modal',
     callback_id: 'edit_sla_modal',
@@ -193,6 +194,13 @@ function editSlaModal(channelId, currentSla) {
     submit: { type: 'plain_text', text: 'Save' },
     close: { type: 'plain_text', text: 'Cancel' },
     blocks: [
+      {
+        type: 'section',
+        text: {
+          type: 'mrkdwn',
+          text: `*Channel:* ${displayName}\n_(Cannot be changed)_`,
+        },
+      },
       {
         type: 'input',
         block_id: 'sla_block',
