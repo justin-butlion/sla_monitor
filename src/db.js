@@ -28,6 +28,7 @@ async function initSchema() {
         ON channel_configs (channel_id, effective_from DESC);
       CREATE INDEX IF NOT EXISTS idx_channel_configs_removed
         ON channel_configs (channel_id) WHERE removed_at IS NULL;
+      ALTER TABLE channel_configs ADD COLUMN IF NOT EXISTS channel_name VARCHAR(255);
 
       CREATE TABLE IF NOT EXISTS pending_messages (
         channel_id VARCHAR(32) NOT NULL,
@@ -58,7 +59,7 @@ async function initSchema() {
 async function getCurrentChannelConfigs() {
   const result = await getPool().query(`
     WITH latest AS (
-      SELECT DISTINCT ON (channel_id) id, channel_id, sla_hours, effective_from
+      SELECT DISTINCT ON (channel_id) id, channel_id, sla_hours, effective_from, channel_name
       FROM channel_configs
       WHERE removed_at IS NULL
       ORDER BY channel_id, effective_from DESC
@@ -87,18 +88,33 @@ function parseSlackTs(ts) {
   return parseInt(parts[0], 10) + (parts[1] ? parseInt(parts[1].slice(0, 6), 10) / 1e6 : 0);
 }
 
-/** Add a new channel (or new config row) */
-async function addChannelConfig(channelId, slaHours) {
+/** Add a new channel (or new config row); channelName stored for display when API is unavailable */
+async function addChannelConfig(channelId, slaHours, channelName = null) {
   await getPool().query(
-    `INSERT INTO channel_configs (channel_id, sla_hours, effective_from)
-     VALUES ($1, $2, NOW())`,
-    [channelId, slaHours]
+    `INSERT INTO channel_configs (channel_id, sla_hours, effective_from, channel_name)
+     VALUES ($1, $2, NOW(), $3)`,
+    [channelId, slaHours, channelName]
   );
 }
 
-/** Edit SLA: insert new row so only new messages use new SLA */
-async function addChannelConfigRow(channelId, slaHours) {
-  await addChannelConfig(channelId, slaHours);
+/** Edit SLA: insert new row so only new messages use new SLA; preserve channel_name */
+async function addChannelConfigRow(channelId, slaHours, channelName = null) {
+  await addChannelConfig(channelId, slaHours, channelName);
+}
+
+/** Update stored channel name for the latest config of this channel (for display) */
+async function updateChannelName(channelId, channelName) {
+  await getPool().query(
+    `UPDATE channel_configs
+     SET channel_name = $2
+     WHERE id = (
+       SELECT id FROM channel_configs
+       WHERE channel_id = $1 AND removed_at IS NULL
+       ORDER BY effective_from DESC
+       LIMIT 1
+     )`,
+    [channelId, channelName]
+  );
 }
 
 /** Stop monitoring: set removed_at on the latest config for this channel */
@@ -188,6 +204,7 @@ module.exports = {
   getConfigForChannelAtTime,
   addChannelConfig,
   addChannelConfigRow,
+  updateChannelName,
   removeChannel,
   addPendingMessage,
   removePendingMessage,

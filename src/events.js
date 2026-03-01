@@ -144,8 +144,15 @@ function registerEventHandlers(app) {
       await ack({ response_action: 'errors', errors: { channel_block: 'This channel is already being monitored. Choose a different channel.' } });
       return;
     }
+    let channelName = null;
     try {
-      await db.addChannelConfig(channelId, slaHours);
+      const r = await client.conversations.info({ channel: channelId });
+      channelName = r.channel?.name || null;
+    } catch {
+      // store without name; display will use ID or resolve later
+    }
+    try {
+      await db.addChannelConfig(channelId, slaHours, channelName);
     } catch (err) {
       console.error('add_channel_modal: addChannelConfig failed', err);
       await ack({ response_action: 'errors', errors: { channel_block: 'Could not save. Please try again.' } });
@@ -179,7 +186,10 @@ function registerEventHandlers(app) {
       return;
     }
     await ack();
-    await db.addChannelConfigRow(channelId, slaHours);
+    const configs = await db.getCurrentChannelConfigs();
+    const current = configs.find((c) => c.channel_id === channelId);
+    const channelName = current?.channel_name || null;
+    await db.addChannelConfigRow(channelId, slaHours, channelName);
     const userId = body.user.id;
     const blocks = await views.buildHomeBlocks(client, body.team?.id);
     await client.views.publish({

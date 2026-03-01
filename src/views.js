@@ -133,7 +133,14 @@ async function buildHomeBlocks(client, teamId) {
   const configs = await db.getCurrentChannelConfigs();
   const channelIds = configs.map((c) => c.channel_id);
   const channelNames = await resolveChannelNames(client, channelIds);
-  const channelsWithNames = configs.map((c) => ({ ...c, channel_name: channelNames[c.channel_id] }));
+  for (const c of configs) {
+    const resolved = channelNames[c.channel_id];
+    if (!c.channel_name && resolved && resolved !== c.channel_id) {
+      await db.updateChannelName(c.channel_id, resolved);
+      c.channel_name = resolved;
+    }
+  }
+  const channelsWithNames = configs.map((c) => ({ ...c, channel_name: c.channel_name || channelNames[c.channel_id] }));
 
   const failed = await db.getFailedMessages();
   const userIds = [...new Set(failed.map((f) => f.sender_user_id))];
