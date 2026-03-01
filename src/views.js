@@ -27,7 +27,7 @@ function howToUseBlocks() {
   ];
 }
 
-/** Channels for monitoring: list + Add channel button */
+/** Channels for monitoring: list + Add channel button (App Home does not allow actions as section accessory) */
 function channelsSectionBlocks(channels, client) {
   const blocks = [
     { type: 'header', text: { type: 'plain_text', text: 'Channels for monitoring', emoji: true } },
@@ -46,13 +46,13 @@ function channelsSectionBlocks(channels, client) {
           type: 'mrkdwn',
           text: `*#${channelName}* — SLA: ${ch.sla_hours} hour${ch.sla_hours !== 1 ? 's' : ''}`,
         },
-        accessory: {
-          type: 'actions',
-          elements: [
-            { type: 'button', text: { type: 'plain_text', text: 'Edit SLA' }, action_id: 'edit_sla', value: ch.channel_id },
-            { type: 'button', text: { type: 'plain_text', text: 'Remove' }, action_id: 'remove_channel', value: ch.channel_id },
-          ],
-        },
+      });
+      blocks.push({
+        type: 'actions',
+        elements: [
+          { type: 'button', text: { type: 'plain_text', text: 'Edit SLA' }, action_id: 'edit_sla', value: ch.channel_id },
+          { type: 'button', text: { type: 'plain_text', text: 'Remove' }, action_id: 'remove_channel', value: ch.channel_id },
+        ],
       });
     }
   }
@@ -87,13 +87,13 @@ function failedMessagesBlocks(failed, userNames) {
         type: 'mrkdwn',
         text: `*Message:* ${snippet || '_no text_'}\n*Sent by:* ${name}\n*Sent:* ${sent}`,
       },
-      accessory: {
-        type: 'actions',
-        elements: [
-          { type: 'button', text: { type: 'plain_text', text: 'Copy link' }, action_id: 'copy_failed_link', value: String(row.id) },
-          { type: 'button', text: { type: 'plain_text', text: 'Remove' }, action_id: 'remove_failed', value: String(row.id) },
-        ],
-      },
+    });
+    blocks.push({
+      type: 'actions',
+      elements: [
+        { type: 'button', text: { type: 'plain_text', text: 'Copy link' }, action_id: 'copy_failed_link', value: String(row.id) },
+        { type: 'button', text: { type: 'plain_text', text: 'Remove' }, action_id: 'remove_failed', value: String(row.id) },
+      ],
     });
   }
   return blocks;
