@@ -27,8 +27,8 @@ function howToUseBlocks() {
   ];
 }
 
-/** Channels for monitoring: list + Add channel button (App Home does not allow actions as section accessory) */
-function channelsSectionBlocks(channels, client) {
+/** Channels for monitoring: list + Add channel button (App Home does not allow actions as section accessory). isMemberByChannel: { [channelId]: boolean } - hide "Add app to channel" when true. */
+function channelsSectionBlocks(channels, client, isMemberByChannel = {}) {
   const blocks = [
     { type: 'header', text: { type: 'plain_text', text: 'Channels for monitoring', emoji: true } },
   ];
@@ -47,13 +47,13 @@ function channelsSectionBlocks(channels, client) {
           text: `*#${channelName}* — SLA: ${ch.sla_hours} hour${ch.sla_hours !== 1 ? 's' : ''}`,
         },
       });
-      blocks.push({
-        type: 'actions',
-        elements: [
-          { type: 'button', text: { type: 'plain_text', text: 'Edit SLA' }, action_id: 'edit_sla', value: ch.channel_id },
-          { type: 'button', text: { type: 'plain_text', text: 'Remove' }, action_id: 'remove_channel', value: ch.channel_id },
-        ],
-      });
+      const elements = [];
+      if (!isMemberByChannel[ch.channel_id]) {
+        elements.push({ type: 'button', text: { type: 'plain_text', text: 'Add app to channel' }, action_id: 'invite_app_to_channel', value: ch.channel_id });
+      }
+      elements.push({ type: 'button', text: { type: 'plain_text', text: 'Edit SLA' }, action_id: 'edit_sla', value: ch.channel_id });
+      elements.push({ type: 'button', text: { type: 'plain_text', text: 'Remove' }, action_id: 'remove_channel', value: ch.channel_id });
+      blocks.push({ type: 'actions', elements });
     }
   }
   blocks.push({
@@ -137,6 +137,20 @@ async function resolveChannelNames(client, channelIds) {
   return names;
 }
 
+/** Get whether the bot is a member of each channel (for showing/hiding "Add app to channel" button) */
+async function getChannelMembership(client, channelIds) {
+  const result = {};
+  for (const id of channelIds) {
+    try {
+      const r = await client.conversations.info({ channel: id });
+      result[id] = r.channel?.is_member === true;
+    } catch {
+      result[id] = false;
+    }
+  }
+  return result;
+}
+
 /** Resolve user display names for failed messages */
 async function resolveUserNames(client, userIds) {
   const names = {};
@@ -165,6 +179,7 @@ async function buildHomeBlocks(client, teamId) {
     }
   }
   const channelsWithNames = configs.map((c) => ({ ...c, channel_name: c.channel_name || channelNames[c.channel_id] }));
+  const isMemberByChannel = await getChannelMembership(client, channelIds);
 
   const failed = await db.getFailedMessages();
   const userIds = [...new Set(failed.map((f) => f.sender_user_id))];
@@ -173,7 +188,7 @@ async function buildHomeBlocks(client, teamId) {
   return [
     ...howToUseBlocks(),
     { type: 'divider' },
-    ...channelsSectionBlocks(channelsWithNames, client),
+    ...channelsSectionBlocks(channelsWithNames, client, isMemberByChannel),
     { type: 'divider' },
     ...failedMessagesBlocks(failed, userNames),
   ];
@@ -247,6 +262,34 @@ function editSlaModal(channelId, channelName, currentSla) {
   };
 }
 
+/** Modal: Instructions to add app to channel (with deep link to open channel) */
+function inviteAppToChannelModal(channelId, teamId) {
+  const openUrl = teamId
+    ? `https://slack.com/app_redirect?channel=${channelId}&team=${teamId}`
+    : `https://slack.com/app_redirect?channel=${channelId}`;
+  return {
+    type: 'modal',
+    callback_id: 'invite_app_modal',
+    title: { type: 'plain_text', text: 'Add app to channel' },
+    close: { type: 'plain_text', text: 'Done' },
+    blocks: [
+      {
+        type: 'section',
+        text: {
+          type: 'mrkdwn',
+          text: 'To add the *SLA Monitor* app to this channel:\n1. Click *Open channel* below.\n2. In the channel, type: `/invite @SLA Monitor`',
+        },
+      },
+      {
+        type: 'actions',
+        elements: [
+          { type: 'button', text: { type: 'plain_text', text: 'Open channel' }, url: openUrl },
+        ],
+      },
+    ],
+  };
+}
+
 /** Modal: Confirm remove channel */
 function removeChannelConfirmModal(channelId) {
   return {
@@ -299,6 +342,7 @@ module.exports = {
   resolveUserNames,
   addChannelModal,
   editSlaModal,
+  inviteAppToChannelModal,
   removeChannelConfirmModal,
   removeFailedConfirmModal,
 };

@@ -69,6 +69,16 @@ function registerEventHandlers(app) {
     });
   });
 
+  app.action('invite_app_to_channel', async ({ body, client, ack }) => {
+    await ack();
+    const channelId = body.actions[0].value;
+    const teamId = body.team?.id;
+    await client.views.open({
+      trigger_id: body.trigger_id,
+      view: views.inviteAppToChannelModal(channelId, teamId),
+    });
+  });
+
   app.action('remove_channel', async ({ body, client, ack }) => {
     await ack();
     const channelId = body.actions[0].value;
