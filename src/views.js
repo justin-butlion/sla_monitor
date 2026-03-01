@@ -29,16 +29,21 @@ function howToUseBlocks() {
 
 /** Channels for monitoring: list + Add channel button (App Home does not allow actions as section accessory). isMemberByChannel: { [channelId]: boolean } - hide "Add app to channel" when true. */
 function channelsSectionBlocks(channels, client, isMemberByChannel = {}) {
+  const sorted = [...channels].sort((a, b) => {
+    const nameA = (a.channel_name || a.channel_id).toLowerCase();
+    const nameB = (b.channel_name || b.channel_id).toLowerCase();
+    return nameA.localeCompare(nameB);
+  });
   const blocks = [
     { type: 'header', text: { type: 'plain_text', text: 'Channels for monitoring', emoji: true } },
   ];
-  if (channels.length === 0) {
+  if (sorted.length === 0) {
     blocks.push({
       type: 'section',
       text: { type: 'mrkdwn', text: '_No channels added yet._' },
     });
   } else {
-    for (const ch of channels) {
+    for (const ch of sorted) {
       const channelName = ch.channel_name || ch.channel_id;
       blocks.push({
         type: 'section',
@@ -49,7 +54,7 @@ function channelsSectionBlocks(channels, client, isMemberByChannel = {}) {
       });
       const elements = [];
       if (!isMemberByChannel[ch.channel_id]) {
-        elements.push({ type: 'button', text: { type: 'plain_text', text: 'Add app to channel' }, action_id: 'invite_app_to_channel', value: ch.channel_id });
+        elements.push({ type: 'button', text: { type: 'plain_text', text: 'Add app to channel' }, action_id: 'invite_app_to_channel', value: ch.channel_id, style: 'primary' });
       }
       elements.push({ type: 'button', text: { type: 'plain_text', text: 'Edit SLA' }, action_id: 'edit_sla', value: ch.channel_id });
       elements.push({ type: 'button', text: { type: 'plain_text', text: 'Remove' }, action_id: 'remove_channel', value: ch.channel_id });
