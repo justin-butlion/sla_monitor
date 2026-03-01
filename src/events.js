@@ -127,9 +127,9 @@ function registerEventHandlers(app) {
   });
 
   app.view('add_channel_modal', async ({ view, client, body, ack }) => {
-    const channelSelect = view.state.values.channel_block?.channel_select?.selected_conversation;
+    const channelBlock = view.state.values.channel_block?.channel_select;
+    const channelId = channelBlock?.selected_conversation || channelBlock?.value;
     const slaRaw = view.state.values.sla_block?.sla_input?.value;
-    const channelId = channelSelect;
     const slaHours = parseSlaHours(slaRaw);
     if (!channelId) {
       await ack({ response_action: 'errors', errors: { channel_block: 'Please select a channel.' } });
@@ -144,14 +144,30 @@ function registerEventHandlers(app) {
       await ack({ response_action: 'errors', errors: { channel_block: 'This channel is already being monitored. Choose a different channel.' } });
       return;
     }
+    try {
+      await db.addChannelConfig(channelId, slaHours);
+    } catch (err) {
+      console.error('add_channel_modal: addChannelConfig failed', err);
+      await ack({ response_action: 'errors', errors: { channel_block: 'Could not save. Please try again.' } });
+      return;
+    }
     await ack();
-    await db.addChannelConfig(channelId, slaHours);
-    const userId = body.user.id;
-    const blocks = await views.buildHomeBlocks(client, body.team?.id);
-    await client.views.publish({
-      user_id: userId,
-      view: { type: 'home', blocks },
-    });
+    const userId = body.user?.id || body.user_id;
+    if (!userId) {
+      console.error('add_channel_modal: no user id in body', JSON.stringify(Object.keys(body)));
+      return;
+    }
+    try {
+      const blocks = await views.buildHomeBlocks(client, body.team?.id);
+      await client.views.publish({
+        user_id: userId,
+        view: { type: 'home', blocks },
+      });
+      const configCount = (await db.getCurrentChannelConfigs()).length;
+      console.log('add_channel_modal: published home tab for user', userId, 'channels count', configCount);
+    } catch (err) {
+      console.error('add_channel_modal: buildHomeBlocks or views.publish failed', err);
+    }
   });
 
   app.view('edit_sla_modal', async ({ view, client, body, ack }) => {
