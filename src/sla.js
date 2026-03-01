@@ -4,8 +4,8 @@ const db = require('./db');
  * Get the channel config effective at message time (for deciding if message is in scope).
  * Returns { channel_id, sla_hours, effective_from } or null.
  */
-async function getConfigForMessage(channelId, messageTs) {
-  return db.getConfigForChannelAtTime(channelId, messageTs);
+async function getConfigForMessage(teamId, channelId, messageTs) {
+  return db.getConfigForChannelAtTime(teamId, channelId, messageTs);
 }
 
 /**
@@ -35,7 +35,7 @@ async function maybeRecordPendingMessage(client, teamId, message) {
   const { channel: channelId, ts: messageTs, user: senderUserId, text, bot_id: botId } = message;
   if (!channelId || !messageTs) return;
 
-  const config = await getConfigForMessage(channelId, messageTs);
+  const config = await getConfigForMessage(teamId, channelId, messageTs);
   if (!config) return;
 
   const senderId = botId || senderUserId;
@@ -48,7 +48,7 @@ async function maybeRecordPendingMessage(client, teamId, message) {
 
   const sentAt = new Date(db.parseSlackTs(messageTs) * 1000);
   const snippet = (text || '').slice(0, 500);
-  await db.addPendingMessage({
+  await db.addPendingMessage(teamId, {
     channelId,
     messageTs,
     senderUserId: senderId,
@@ -63,12 +63,12 @@ async function maybeRecordPendingMessage(client, teamId, message) {
  * replyUserId: the user who just posted the reply (from the message event).
  */
 async function maybeMarkReplied(client, teamId, channelId, threadTs, replyUserId) {
-  const pending = await db.getPendingByChannelAndTs(channelId, threadTs);
+  const pending = await db.getPendingByChannelAndTs(teamId, channelId, threadTs);
   if (!pending) return;
   if (!replyUserId) return;
   const isExternal = await isSenderExternal(client, replyUserId, teamId);
   if (!isExternal) {
-    await db.removePendingMessage(channelId, threadTs);
+    await db.removePendingMessage(teamId, channelId, threadTs);
   }
 }
 
@@ -76,7 +76,7 @@ async function maybeMarkReplied(client, teamId, channelId, threadTs, replyUserId
  * Run SLA check: for each pending message, if past SLA and no workspace reply, move to failed_messages.
  */
 async function runSLACheck(client, teamId) {
-  const pending = await db.getPendingMessages();
+  const pending = await db.getPendingMessages(teamId);
   const now = new Date();
 
   for (const row of pending) {
@@ -106,14 +106,14 @@ async function runSLACheck(client, teamId) {
     }
 
     if (!hasWorkspaceReply) {
-      await db.addFailedMessage({
+      await db.addFailedMessage(teamId, {
         channelId: channel_id,
         messageTs: message_ts,
         senderUserId: sender_user_id,
         sentAt: sent_at,
         messageSnippet: message_snippet,
       });
-      await db.removePendingMessage(channel_id, message_ts);
+      await db.removePendingMessage(teamId, channel_id, message_ts);
     }
   }
 }

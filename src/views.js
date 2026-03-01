@@ -195,21 +195,21 @@ async function resolveUserNames(client, userIds) {
 
 /** Build full App Home view and return blocks (needs client for API calls) */
 async function buildHomeBlocks(client, teamId) {
-  const includeBotMessages = (await db.getSetting('include_bot_messages')) === 'true';
-  const configs = await db.getCurrentChannelConfigs();
+  const includeBotMessages = (await db.getSetting(teamId, 'include_bot_messages')) === 'true';
+  const configs = await db.getCurrentChannelConfigs(teamId);
   const channelIds = configs.map((c) => c.channel_id);
   const channelNames = await resolveChannelNames(client, channelIds);
   for (const c of configs) {
     const resolved = channelNames[c.channel_id];
     if (!c.channel_name && resolved && resolved !== c.channel_id) {
-      await db.updateChannelName(c.channel_id, resolved);
+      await db.updateChannelName(teamId, c.channel_id, resolved);
       c.channel_name = resolved;
     }
   }
   const channelsWithNames = configs.map((c) => ({ ...c, channel_name: c.channel_name || channelNames[c.channel_id] }));
   const isMemberByChannel = await getChannelMembership(client, channelIds);
 
-  const failed = await db.getFailedMessages();
+  const failed = await db.getFailedMessages(teamId);
   const userIds = [...new Set(failed.map((f) => f.sender_user_id))];
   const userNames = await resolveUserNames(client, userIds);
 
