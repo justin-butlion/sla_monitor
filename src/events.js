@@ -25,7 +25,10 @@ function registerEventHandlers(app) {
   });
 
   app.message(async ({ message, client, context }) => {
-    if (message.bot_id) return;
+    if (message.bot_id) {
+      const includeBots = await db.getSetting('include_bot_messages');
+      if (includeBots !== 'true') return;
+    }
     const subtype = message.subtype || '';
     if (subtype && subtype !== 'thread_broadcast') return;
 
@@ -86,6 +89,26 @@ function registerEventHandlers(app) {
       trigger_id: body.trigger_id,
       view: views.removeChannelConfirmModal(channelId),
     });
+  });
+
+  app.action('settings_include_bot_messages', async ({ body, client, ack }) => {
+    await ack();
+    const action = body.actions?.[0];
+    const selected = action?.selected_options || [];
+    const include = selected.some((o) => o.value === 'include');
+    await db.setSetting('include_bot_messages', include ? 'true' : 'false');
+    const userId = body.user?.id || body.user_id;
+    if (userId) {
+      try {
+        const blocks = await views.buildHomeBlocks(client, body.team?.id);
+        await client.views.publish({
+          user_id: userId,
+          view: { type: 'home', blocks },
+        });
+      } catch (err) {
+        console.error('settings_include_bot_messages: publish failed', err);
+      }
+    }
   });
 
   app.action('copy_failed_link', async ({ body, client, ack }) => {

@@ -21,7 +21,25 @@ function howToUseBlocks() {
       type: 'section',
       text: {
         type: 'mrkdwn',
-        text: '• Add channels to monitor and set an SLA (hours to reply).\n• The app tracks messages from people outside your workspace in those channels.\n• Add the SLA Monitor app to the channels you want to monitor.\n• If a workspace member replies to the message (in thread) within the SLA window, the message passes; otherwise it fails.\n• View and manage failed messages at the bottom section of this screen.',
+        text: '1. Add channels to monitor and set an SLA (hours to reply).\n2. The app tracks messages from people outside your workspace in those channels.\n3. Add the SLA Monitor app to the channels you want to monitor.\n4. If a workspace member replies to the message (in thread) within the SLA window, the message passes; otherwise it fails.\n5. View and manage failed messages at the bottom section of this screen.',
+      },
+    },
+  ];
+}
+
+/** Settings section: include bot messages toggle (default off) */
+function settingsSectionBlocks(includeBotMessages) {
+  const option = { value: 'include', text: { type: 'plain_text', text: 'Include' } };
+  return [
+    { type: 'header', text: { type: 'plain_text', text: 'Settings', emoji: true } },
+    {
+      type: 'section',
+      text: { type: 'mrkdwn', text: 'Messages from bots are included in the SLA' },
+      accessory: {
+        type: 'checkboxes',
+        action_id: 'settings_include_bot_messages',
+        options: [option],
+        initial_options: includeBotMessages ? [option] : [],
       },
     },
   ];
@@ -156,10 +174,14 @@ async function getChannelMembership(client, channelIds) {
   return result;
 }
 
-/** Resolve user display names for failed messages */
+/** Resolve user display names for failed messages (bot IDs shown as "Bot") */
 async function resolveUserNames(client, userIds) {
   const names = {};
   for (const id of userIds) {
+    if (id && id.startsWith('B')) {
+      names[id] = 'Bot';
+      continue;
+    }
     try {
       const r = await client.users.info({ user: id });
       const u = r.user;
@@ -173,6 +195,7 @@ async function resolveUserNames(client, userIds) {
 
 /** Build full App Home view and return blocks (needs client for API calls) */
 async function buildHomeBlocks(client, teamId) {
+  const includeBotMessages = (await db.getSetting('include_bot_messages')) === 'true';
   const configs = await db.getCurrentChannelConfigs();
   const channelIds = configs.map((c) => c.channel_id);
   const channelNames = await resolveChannelNames(client, channelIds);
@@ -192,6 +215,8 @@ async function buildHomeBlocks(client, teamId) {
 
   return [
     ...howToUseBlocks(),
+    { type: 'divider' },
+    ...settingsSectionBlocks(includeBotMessages),
     { type: 'divider' },
     ...channelsSectionBlocks(channelsWithNames, client, isMemberByChannel),
     { type: 'divider' },

@@ -49,10 +49,33 @@ async function initSchema() {
         message_snippet TEXT,
         created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
       );
+      CREATE TABLE IF NOT EXISTS app_settings (
+        key TEXT PRIMARY KEY,
+        value TEXT NOT NULL
+      );
     `);
   } finally {
     client.release();
   }
+}
+
+/** Get app setting (returns null if not set) */
+async function getSetting(key) {
+  const result = await getPool().query(
+    'SELECT value FROM app_settings WHERE key = $1',
+    [key]
+  );
+  const row = result.rows[0];
+  return row ? row.value : null;
+}
+
+/** Set app setting */
+async function setSetting(key, value) {
+  await getPool().query(
+    `INSERT INTO app_settings (key, value) VALUES ($1, $2)
+     ON CONFLICT (key) DO UPDATE SET value = $2`,
+    [key, value]
+  );
 }
 
 /** Current monitored channels: latest config per channel where removed_at IS NULL */
@@ -200,6 +223,8 @@ async function getPendingByChannelAndTs(channelId, messageTs) {
 module.exports = {
   getPool,
   initSchema,
+  getSetting,
+  setSetting,
   getCurrentChannelConfigs,
   getConfigForChannelAtTime,
   addChannelConfig,

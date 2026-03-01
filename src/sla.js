@@ -32,21 +32,26 @@ async function isSenderExternal(client, userId, teamId) {
  * record it in pending_messages.
  */
 async function maybeRecordPendingMessage(client, teamId, message) {
-  const { channel: channelId, ts: messageTs, user: senderUserId, text } = message;
-  if (!channelId || !messageTs || !senderUserId) return;
+  const { channel: channelId, ts: messageTs, user: senderUserId, text, bot_id: botId } = message;
+  if (!channelId || !messageTs) return;
 
   const config = await getConfigForMessage(channelId, messageTs);
   if (!config) return;
 
-  const external = await isSenderExternal(client, senderUserId, teamId);
-  if (!external) return;
+  const senderId = botId || senderUserId;
+  if (!senderId) return;
+
+  if (!botId) {
+    const external = await isSenderExternal(client, senderUserId, teamId);
+    if (!external) return;
+  }
 
   const sentAt = new Date(db.parseSlackTs(messageTs) * 1000);
   const snippet = (text || '').slice(0, 500);
   await db.addPendingMessage({
     channelId,
     messageTs,
-    senderUserId,
+    senderUserId: senderId,
     sentAt,
     slaHours: config.sla_hours,
     messageSnippet: snippet,
