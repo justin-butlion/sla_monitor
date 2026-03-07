@@ -70,8 +70,8 @@ function channelsSectionBlocks(channels, client, isMemberByChannel = {}) {
   return blocks;
 }
 
-/** Failed messages table as section blocks */
-function failedMessagesBlocks(failed, userNames) {
+/** Failed messages table as section blocks; permalinks: failed id -> url (optional, for View message button) */
+function failedMessagesBlocks(failed, userNames, permalinks = {}) {
   const blocks = [
     { type: 'header', text: { type: 'plain_text', text: 'Messages that failed the SLA', emoji: true } },
   ];
@@ -93,13 +93,16 @@ function failedMessagesBlocks(failed, userNames) {
         text: `*Message:* ${snippet || '_no text_'}\n*Sent by:* ${name}\n*Sent:* ${sent}`,
       },
     });
-    blocks.push({
-      type: 'actions',
-      elements: [
-        { type: 'button', text: { type: 'plain_text', text: 'Copy link' }, action_id: 'copy_failed_link', value: String(row.id) },
-        { type: 'button', text: { type: 'plain_text', text: 'Remove' }, action_id: 'remove_failed', value: String(row.id) },
-      ],
-    });
+    const viewUrl = permalinks[row.id];
+    const elements = [];
+    if (viewUrl) {
+      elements.push({ type: 'button', text: { type: 'plain_text', text: 'View message' }, url: viewUrl });
+    }
+    elements.push(
+      { type: 'button', text: { type: 'plain_text', text: 'Copy link' }, action_id: 'copy_failed_link', value: String(row.id) },
+      { type: 'button', text: { type: 'plain_text', text: 'Remove' }, action_id: 'remove_failed', value: String(row.id) }
+    );
+    blocks.push({ type: 'actions', elements });
   }
   return blocks;
 }
@@ -194,12 +197,24 @@ async function buildHomeBlocks(client, teamId) {
   const userIds = [...new Set(failed.map((f) => f.sender_user_id))];
   const userNames = await resolveUserNames(client, userIds);
 
+  const permalinks = {};
+  await Promise.all(
+    failed.map(async (row) => {
+      try {
+        const r = await client.chat.getPermalink({ channel: row.channel_id, message_ts: row.message_ts });
+        if (r.permalink) permalinks[row.id] = r.permalink;
+      } catch {
+        // channel may be inaccessible; leave no url for this row
+      }
+    })
+  );
+
   return [
     ...howToUseBlocks(),
     { type: 'divider' },
     ...channelsSectionBlocks(channelsWithNames, client, isMemberByChannel),
     { type: 'divider' },
-    ...failedMessagesBlocks(failed, userNames),
+    ...failedMessagesBlocks(failed, userNames, permalinks),
   ];
 }
 
