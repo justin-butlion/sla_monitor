@@ -99,7 +99,7 @@ function failedMessagesBlocks(failed, userNames, permalinks = {}) {
       elements.push({ type: 'button', text: { type: 'plain_text', text: 'View message' }, url: viewUrl });
     }
     elements.push(
-      { type: 'button', text: { type: 'plain_text', text: 'Copy link' }, action_id: 'copy_failed_link', value: String(row.id) },
+      { type: 'button', text: { type: 'plain_text', text: 'Copy message URL' }, action_id: 'copy_failed_link', value: String(row.id) },
       { type: 'button', text: { type: 'plain_text', text: 'Remove' }, action_id: 'remove_failed', value: String(row.id) }
     );
     blocks.push({ type: 'actions', elements });
