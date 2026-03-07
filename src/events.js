@@ -25,8 +25,8 @@ function registerEventHandlers(app) {
   app.message(async ({ message, client, context }) => {
     const teamId = context.teamId;
     if (message.bot_id) {
-      const includeBots = await db.getSetting(teamId, 'include_bot_messages');
-      if (includeBots !== 'true') return;
+      const config = await db.getConfigForChannelAtTime(teamId, message.channel, message.ts);
+      if (!config || !config.include_bot_messages) return;
     }
     const subtype = message.subtype || '';
     if (subtype && subtype !== 'thread_broadcast') return;
@@ -56,6 +56,7 @@ function registerEventHandlers(app) {
     const configs = await db.getCurrentChannelConfigs(teamId);
     const current = configs.find((c) => c.channel_id === channelId);
     const currentSla = current ? current.sla_hours : 12;
+    const includeBotMessages = current ? !!current.include_bot_messages : false;
     let channelName = null;
     try {
       const r = await client.conversations.info({ channel: channelId });
@@ -65,7 +66,7 @@ function registerEventHandlers(app) {
     }
     await client.views.open({
       trigger_id: body.trigger_id,
-      view: views.editSlaModal(channelId, channelName, currentSla),
+      view: views.editSlaModal(channelId, channelName, currentSla, includeBotMessages),
     });
   });
 
@@ -86,27 +87,6 @@ function registerEventHandlers(app) {
       trigger_id: body.trigger_id,
       view: views.removeChannelConfirmModal(channelId),
     });
-  });
-
-  app.action('settings_include_bot_messages', async ({ body, client, ack }) => {
-    await ack();
-    const teamId = body.team?.id;
-    const action = body.actions?.[0];
-    const selected = action?.selected_options || [];
-    const include = selected.some((o) => o.value === 'include');
-    await db.setSetting(teamId, 'include_bot_messages', include ? 'true' : 'false');
-    const userId = body.user?.id || body.user_id;
-    if (userId && teamId) {
-      try {
-        const blocks = await views.buildHomeBlocks(client, teamId);
-        await client.views.publish({
-          user_id: userId,
-          view: { type: 'home', blocks },
-        });
-      } catch (err) {
-        console.error('settings_include_bot_messages: publish failed', err);
-      }
-    }
   });
 
   app.action('copy_failed_link', async ({ body, client, ack }) => {
@@ -164,6 +144,8 @@ function registerEventHandlers(app) {
     const channelId = channelBlock?.selected_conversation || channelBlock?.value;
     const slaRaw = view.state.values.sla_block?.sla_input?.value;
     const slaHours = parseSlaHours(slaRaw);
+    const botSelected = view.state.values.bot_block?.include_bots?.selected_options || [];
+    const includeBotMessages = botSelected.some((o) => o.value === 'include');
     if (!channelId) {
       await ack({ response_action: 'errors', errors: { channel_block: 'Please select a channel.' } });
       return;
@@ -185,7 +167,7 @@ function registerEventHandlers(app) {
       // store without name; display will use ID or resolve later
     }
     try {
-      await db.addChannelConfig(teamId, channelId, slaHours, channelName);
+      await db.addChannelConfig(teamId, channelId, slaHours, channelName, includeBotMessages);
     } catch (err) {
       console.error('add_channel_modal: addChannelConfig failed', err);
       await ack({ response_action: 'errors', errors: { channel_block: 'Could not save. Please try again.' } });
@@ -215,6 +197,8 @@ function registerEventHandlers(app) {
     const channelId = view.private_metadata;
     const slaRaw = view.state.values.sla_block?.sla_input?.value;
     const slaHours = parseSlaHours(slaRaw);
+    const botSelected = view.state.values.bot_block?.include_bots?.selected_options || [];
+    const includeBotMessages = botSelected.some((o) => o.value === 'include');
     if (slaHours === null) {
       await ack({ response_action: 'errors', errors: { sla_block: 'Enter a whole number 1 or greater.' } });
       return;
@@ -223,7 +207,7 @@ function registerEventHandlers(app) {
     const configs = await db.getCurrentChannelConfigs(teamId);
     const current = configs.find((c) => c.channel_id === channelId);
     const channelName = current?.channel_name || null;
-    await db.addChannelConfigRow(teamId, channelId, slaHours, channelName);
+    await db.addChannelConfigRow(teamId, channelId, slaHours, channelName, includeBotMessages);
     const userId = body.user.id;
     const blocks = await views.buildHomeBlocks(client, teamId);
     await client.views.publish({

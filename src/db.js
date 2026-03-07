@@ -31,6 +31,7 @@ async function initSchema() {
       );
       ALTER TABLE channel_configs ADD COLUMN IF NOT EXISTS team_id VARCHAR(32);
       ALTER TABLE channel_configs ADD COLUMN IF NOT EXISTS channel_name VARCHAR(255);
+      ALTER TABLE channel_configs ADD COLUMN IF NOT EXISTS include_bot_messages BOOLEAN NOT NULL DEFAULT false;
       CREATE INDEX IF NOT EXISTS idx_channel_configs_team_channel_effective
         ON channel_configs (team_id, channel_id, effective_from DESC);
       CREATE INDEX IF NOT EXISTS idx_channel_configs_removed
@@ -154,7 +155,7 @@ async function getCurrentChannelConfigs(teamId) {
   const result = await getPool().query(
     `
     WITH latest AS (
-      SELECT DISTINCT ON (channel_id) id, channel_id, sla_hours, effective_from, channel_name
+      SELECT DISTINCT ON (channel_id) id, channel_id, sla_hours, effective_from, channel_name, include_bot_messages
       FROM channel_configs
       WHERE team_id = $1 AND removed_at IS NULL
       ORDER BY channel_id, effective_from DESC
@@ -170,7 +171,7 @@ async function getCurrentChannelConfigs(teamId) {
 async function getConfigForChannelAtTime(teamId, channelId, messageTs) {
   const ts = typeof messageTs === 'string' ? parseSlackTs(messageTs) : messageTs;
   const result = await getPool().query(
-    `SELECT channel_id, sla_hours, effective_from
+    `SELECT channel_id, sla_hours, effective_from, include_bot_messages
      FROM channel_configs
      WHERE team_id = $1 AND channel_id = $2 AND effective_from <= $3::timestamptz AND removed_at IS NULL
      ORDER BY effective_from DESC
@@ -185,18 +186,18 @@ function parseSlackTs(ts) {
   return parseInt(parts[0], 10) + (parts[1] ? parseInt(parts[1].slice(0, 6), 10) / 1e6 : 0);
 }
 
-/** Add a new channel (or new config row); channelName stored for display when API is unavailable */
-async function addChannelConfig(teamId, channelId, slaHours, channelName = null) {
+/** Add a new channel (or new config row); channelName and includeBotMessages stored; new messages use this config */
+async function addChannelConfig(teamId, channelId, slaHours, channelName = null, includeBotMessages = false) {
   await getPool().query(
-    `INSERT INTO channel_configs (team_id, channel_id, sla_hours, effective_from, channel_name)
-     VALUES ($1, $2, $3, NOW(), $4)`,
-    [teamId, channelId, slaHours, channelName]
+    `INSERT INTO channel_configs (team_id, channel_id, sla_hours, effective_from, channel_name, include_bot_messages)
+     VALUES ($1, $2, $3, NOW(), $4, $5)`,
+    [teamId, channelId, slaHours, channelName, !!includeBotMessages]
   );
 }
 
-/** Edit SLA: insert new row so only new messages use new SLA; preserve channel_name */
-async function addChannelConfigRow(teamId, channelId, slaHours, channelName = null) {
-  await addChannelConfig(teamId, channelId, slaHours, channelName);
+/** Edit SLA / bot setting: insert new row so only new messages use new values */
+async function addChannelConfigRow(teamId, channelId, slaHours, channelName = null, includeBotMessages = false) {
+  await addChannelConfig(teamId, channelId, slaHours, channelName, includeBotMessages);
 }
 
 /** Update stored channel name for the latest config of this channel (for display) */

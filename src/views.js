@@ -27,24 +27,6 @@ function howToUseBlocks() {
   ];
 }
 
-/** Settings section: include bot messages toggle (default off) */
-function settingsSectionBlocks(includeBotMessages) {
-  const option = { value: 'include', text: { type: 'plain_text', text: 'Include' } };
-  return [
-    { type: 'header', text: { type: 'plain_text', text: 'Settings', emoji: true } },
-    {
-      type: 'section',
-      text: { type: 'mrkdwn', text: 'Messages from bots are included in the SLA' },
-      accessory: {
-        type: 'checkboxes',
-        action_id: 'settings_include_bot_messages',
-        options: [option],
-        initial_options: includeBotMessages ? [option] : [],
-      },
-    },
-  ];
-}
-
 /** Channels for monitoring: list + Add channel button (App Home does not allow actions as section accessory). isMemberByChannel: { [channelId]: boolean } - hide "Add app to channel" when true. */
 function channelsSectionBlocks(channels, client, isMemberByChannel = {}) {
   const sorted = [...channels].sort((a, b) => {
@@ -195,7 +177,6 @@ async function resolveUserNames(client, userIds) {
 
 /** Build full App Home view and return blocks (needs client for API calls) */
 async function buildHomeBlocks(client, teamId) {
-  const includeBotMessages = (await db.getSetting(teamId, 'include_bot_messages')) === 'true';
   const configs = await db.getCurrentChannelConfigs(teamId);
   const channelIds = configs.map((c) => c.channel_id);
   const channelNames = await resolveChannelNames(client, channelIds);
@@ -216,8 +197,6 @@ async function buildHomeBlocks(client, teamId) {
   return [
     ...howToUseBlocks(),
     { type: 'divider' },
-    ...settingsSectionBlocks(includeBotMessages),
-    { type: 'divider' },
     ...channelsSectionBlocks(channelsWithNames, client, isMemberByChannel),
     { type: 'divider' },
     ...failedMessagesBlocks(failed, userNames),
@@ -226,6 +205,7 @@ async function buildHomeBlocks(client, teamId) {
 
 /** Modal: Add channel */
 function addChannelModal() {
+  const includeOption = { value: 'include', text: { type: 'plain_text', text: 'Include messages from bots in the SLA' } };
   return {
     type: 'modal',
     callback_id: 'add_channel_modal',
@@ -255,13 +235,25 @@ function addChannelModal() {
         },
         label: { type: 'plain_text', text: 'SLA (hours to reply)' },
       },
+      {
+        type: 'input',
+        block_id: 'bot_block',
+        element: {
+          type: 'checkboxes',
+          action_id: 'include_bots',
+          options: [includeOption],
+          initial_options: [],
+        },
+        label: { type: 'plain_text', text: 'Include messages from bots' },
+      },
     ],
   };
 }
 
-/** Modal: Edit SLA (channel_id in private_metadata; channel name shown read-only) */
-function editSlaModal(channelId, channelName, currentSla) {
+/** Modal: Edit SLA (channel_id in private_metadata; channel name shown read-only; includeBotMessages for checkbox state) */
+function editSlaModal(channelId, channelName, currentSla, includeBotMessages = false) {
   const displayName = channelName ? `#${channelName}` : channelId;
+  const includeOption = { value: 'include', text: { type: 'plain_text', text: 'Include messages from bots in the SLA' } };
   return {
     type: 'modal',
     callback_id: 'edit_sla_modal',
@@ -287,6 +279,17 @@ function editSlaModal(channelId, channelName, currentSla) {
           initial_value: String(currentSla),
         },
         label: { type: 'plain_text', text: 'SLA (hours to reply)' },
+      },
+      {
+        type: 'input',
+        block_id: 'bot_block',
+        element: {
+          type: 'checkboxes',
+          action_id: 'include_bots',
+          options: [includeOption],
+          initial_options: includeBotMessages ? [includeOption] : [],
+        },
+        label: { type: 'plain_text', text: 'Include messages from bots' },
       },
     ],
   };
