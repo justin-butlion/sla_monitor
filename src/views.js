@@ -86,11 +86,12 @@ function failedMessagesBlocks(failed, userNames, permalinks = {}) {
     const snippet = (row.message_snippet || '').slice(0, 100);
     const name = userNames[row.sender_user_id] || row.sender_user_id;
     const sent = relativeTime(row.sent_at);
+    const failedAgo = relativeTime(row.created_at);
     blocks.push({
       type: 'section',
       text: {
         type: 'mrkdwn',
-        text: `*Message:* ${snippet || '_no text_'}\n*Sent by:* ${name}\n*Sent:* ${sent}`,
+        text: `*Message:* ${snippet || '_no text_'}\n*Sent by:* ${name}\n*Sent:* ${sent}\n*Failed SLA:* ${failedAgo}`,
       },
     });
     const viewUrl = permalinks[row.id];
