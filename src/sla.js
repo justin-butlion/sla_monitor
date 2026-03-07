@@ -116,8 +116,13 @@ async function runSLACheck(client, teamId) {
       await db.removePendingMessage(teamId, channel_id, message_ts);
 
       const notifyConfig = await db.getNotifyConfigForChannel(teamId, channel_id);
-      const userIds = notifyConfig?.notify_user_ids || [];
-      if (userIds.length > 0) {
+      const userIds = (notifyConfig?.notify_user_ids || []).filter(
+        (id) => typeof id === 'string' && id.trim().length > 0
+      );
+      if (userIds.length === 0) {
+        console.log('runSLACheck: message failed SLA in channel', channel_id, ', no notify users configured.');
+      } else {
+        console.log('runSLACheck: sending failure DM to', userIds.length, 'user(s) for channel', channel_id);
         let permalink = null;
         try {
           const res = await client.chat.getPermalink({ channel: channel_id, message_ts });
@@ -137,12 +142,13 @@ async function runSLACheck(client, teamId) {
             const openRes = await client.conversations.open({ users: userId });
             const dmChannelId = openRes?.channel?.id;
             if (!dmChannelId) {
-              console.error('runSLACheck: conversations.open did not return channel for user', userId);
+              console.error('runSLACheck: conversations.open did not return channel for user', userId, 'response:', openRes);
               continue;
             }
             await client.chat.postMessage({ channel: dmChannelId, text, blocks });
           } catch (err) {
-            console.error('runSLACheck: failed to DM notify user', userId, err.message);
+            const slackError = err.data?.error ?? err.data ?? err.message;
+            console.error('runSLACheck: failed to DM notify user', userId, err.message, 'Slack error:', slackError);
           }
         }
       }

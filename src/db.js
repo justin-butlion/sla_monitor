@@ -214,7 +214,16 @@ async function getNotifyConfigForChannel(teamId, channelId) {
   );
   const row = result.rows[0];
   if (!row) return { channel_name: null, notify_user_ids: [] };
-  const ids = Array.isArray(row.notify_user_ids) ? row.notify_user_ids : [];
+  let ids = row.notify_user_ids;
+  if (typeof ids === 'string') {
+    try {
+      ids = JSON.parse(ids);
+    } catch {
+      ids = [];
+    }
+  }
+  if (!Array.isArray(ids)) ids = [];
+  ids = ids.filter((id) => typeof id === 'string' && id.trim().length > 0);
   return { channel_name: row.channel_name || null, notify_user_ids: ids };
 }
 
