@@ -75,8 +75,8 @@ function channelsSectionBlocks(channels, client, isMemberByChannel = {}) {
   return blocks;
 }
 
-/** Failed messages table as section blocks; permalinks: failed id -> url; channelNames: channel_id -> name */
-function failedMessagesBlocks(failed, userNames, permalinks = {}, channelNames = {}) {
+/** Failed messages table as section blocks; permalinks: failed id -> url; channelNames: channel_id -> name; failedAgoByRowId: row id -> "X ago" (relative to SLA deadline) */
+function failedMessagesBlocks(failed, userNames, permalinks = {}, channelNames = {}, failedAgoByRowId = {}) {
   const blocks = [
     { type: 'header', text: { type: 'plain_text', text: 'Messages that failed the SLA', emoji: true } },
   ];
@@ -92,7 +92,7 @@ function failedMessagesBlocks(failed, userNames, permalinks = {}, channelNames =
     const snippet = (row.message_snippet || '').slice(0, 100);
     const name = userNames[row.sender_user_id] || row.sender_user_id;
     const sent = relativeTime(row.sent_at);
-    const failedAgo = relativeTime(row.created_at);
+    const failedAgo = failedAgoByRowId[row.id] ?? relativeTime(row.created_at);
     blocks.push({
       type: 'section',
       text: {
@@ -218,12 +218,25 @@ async function buildHomeBlocks(client, teamId) {
     })
   );
 
+  const failedAgoByRowId = {};
+  await Promise.all(
+    failed.map(async (row) => {
+      const config = await db.getConfigForChannelAtTime(teamId, row.channel_id, row.message_ts);
+      if (config && config.sla_hours != null) {
+        const deadline = new Date(new Date(row.sent_at).getTime() + config.sla_hours * 60 * 60 * 1000);
+        failedAgoByRowId[row.id] = relativeTime(deadline);
+      } else {
+        failedAgoByRowId[row.id] = relativeTime(row.created_at);
+      }
+    })
+  );
+
   return [
     ...howToUseBlocks(),
     { type: 'divider' },
     ...channelsSectionBlocks(channelsWithNames, client, isMemberByChannel),
     { type: 'divider' },
-    ...failedMessagesBlocks(failed, userNames, permalinks, failedChannelNames),
+    ...failedMessagesBlocks(failed, userNames, permalinks, failedChannelNames, failedAgoByRowId),
   ];
 }
 
