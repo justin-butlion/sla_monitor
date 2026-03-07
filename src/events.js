@@ -121,7 +121,7 @@ function registerEventHandlers(app) {
             type: 'section',
             text: {
               type: 'mrkdwn',
-              text: `Copy this link:\n<${permalink.permalink}|Open message>`,
+              text: `Copy this URL:\n\`${permalink.permalink}\``,
             },
           },
         ],
