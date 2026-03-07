@@ -21,7 +21,7 @@ function howToUseBlocks() {
       type: 'section',
       text: {
         type: 'mrkdwn',
-        text: '1. Add channels to monitor and set an SLA (hours to reply).\n2. The app tracks messages from people outside your workspace in those channels.\n3. Add the SLA Monitor app to the channels you want to monitor.\n4. If a workspace member replies to the message (in thread) within the SLA window, the message passes; otherwise it fails.\n5. View and manage failed messages at the bottom section of this screen.',
+        text: '1. Add channels to monitor and set an SLA (hours to reply).\n2. The app tracks new messages sent from people outside your workspace in those channels.\n3. Add the SLA Monitor app to the channels you want to monitor.\n4. If a member of your workspace replies to the message (in thread) within the SLA window, the message passes; otherwise it fails.\n5. View and manage messages at the bottom section of this screen.\n6. Send an email to justin@projectbi.net if you need any further support.',
       },
     },
   ];
