@@ -134,7 +134,13 @@ async function runSLACheck(client, teamId) {
           : [{ type: 'section', text: { type: 'mrkdwn', text: `A message in ${channelDisplay} has failed the SLA.` } }];
         for (const userId of userIds) {
           try {
-            await client.chat.postMessage({ channel: userId, text, blocks });
+            const openRes = await client.conversations.open({ users: userId });
+            const dmChannelId = openRes?.channel?.id;
+            if (!dmChannelId) {
+              console.error('runSLACheck: conversations.open did not return channel for user', userId);
+              continue;
+            }
+            await client.chat.postMessage({ channel: dmChannelId, text, blocks });
           } catch (err) {
             console.error('runSLACheck: failed to DM notify user', userId, err.message);
           }

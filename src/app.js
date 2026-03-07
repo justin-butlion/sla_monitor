@@ -34,6 +34,7 @@ const app = new App({
     'groups:read',
     'users:read',
     'chat:write',
+    'im:write',
   ],
   installationStore: {
     storeInstallation: async (installation) => {
