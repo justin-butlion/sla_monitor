@@ -9,9 +9,9 @@ function parseSlaHours(value) {
 }
 
 function registerEventHandlers(app) {
-  app.event('app_home_opened', async ({ event, client }) => {
+  app.event('app_home_opened', async ({ event, client, context }) => {
     const userId = event.user;
-    const teamId = event.team;
+    const teamId = context.teamId;
     const blocks = await views.buildHomeBlocks(client, teamId);
     await client.views.publish({
       user_id: userId,
