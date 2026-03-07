@@ -70,8 +70,8 @@ function channelsSectionBlocks(channels, client, isMemberByChannel = {}) {
   return blocks;
 }
 
-/** Failed messages table as section blocks; permalinks: failed id -> url (optional, for View message button) */
-function failedMessagesBlocks(failed, userNames, permalinks = {}) {
+/** Failed messages table as section blocks; permalinks: failed id -> url; channelNames: channel_id -> name */
+function failedMessagesBlocks(failed, userNames, permalinks = {}, channelNames = {}) {
   const blocks = [
     { type: 'header', text: { type: 'plain_text', text: 'Messages that failed the SLA', emoji: true } },
   ];
@@ -83,6 +83,7 @@ function failedMessagesBlocks(failed, userNames, permalinks = {}) {
     return blocks;
   }
   for (const row of failed) {
+    const channelLabel = channelNames[row.channel_id] ? `#${channelNames[row.channel_id]}` : row.channel_id;
     const snippet = (row.message_snippet || '').slice(0, 100);
     const name = userNames[row.sender_user_id] || row.sender_user_id;
     const sent = relativeTime(row.sent_at);
@@ -91,7 +92,7 @@ function failedMessagesBlocks(failed, userNames, permalinks = {}) {
       type: 'section',
       text: {
         type: 'mrkdwn',
-        text: `*Message:* ${snippet || '_no text_'}\n*Sent by:* ${name}\n*Sent:* ${sent}\n*Failed SLA:* ${failedAgo}`,
+        text: `*Channel:* ${channelLabel}\n*Message:* ${snippet || '_no text_'}\n*Sent by:* ${name}\n*Sent:* ${sent}\n*Failed SLA:* ${failedAgo}`,
       },
     });
     const viewUrl = permalinks[row.id];
@@ -197,6 +198,8 @@ async function buildHomeBlocks(client, teamId) {
   const failed = await db.getFailedMessages(teamId);
   const userIds = [...new Set(failed.map((f) => f.sender_user_id))];
   const userNames = await resolveUserNames(client, userIds);
+  const failedChannelIds = [...new Set(failed.map((f) => f.channel_id))];
+  const failedChannelNames = await resolveChannelNames(client, failedChannelIds);
 
   const permalinks = {};
   await Promise.all(
@@ -215,7 +218,7 @@ async function buildHomeBlocks(client, teamId) {
     { type: 'divider' },
     ...channelsSectionBlocks(channelsWithNames, client, isMemberByChannel),
     { type: 'divider' },
-    ...failedMessagesBlocks(failed, userNames, permalinks),
+    ...failedMessagesBlocks(failed, userNames, permalinks, failedChannelNames),
   ];
 }
 
