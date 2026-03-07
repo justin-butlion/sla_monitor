@@ -270,12 +270,23 @@ function addChannelModal() {
         },
         label: { type: 'plain_text', text: 'Include messages from bots' },
       },
+      {
+        type: 'input',
+        block_id: 'notify_block',
+        element: {
+          type: 'multi_users_select',
+          action_id: 'notify_select',
+          placeholder: { type: 'plain_text', text: 'Select members to notify when a message fails SLA (optional)' },
+        },
+        label: { type: 'plain_text', text: 'Notify these members when a message fails SLA (optional)' },
+        optional: true,
+      },
     ],
   };
 }
 
-/** Modal: Edit SLA (channel_id in private_metadata; channel name shown read-only; includeBotMessages for checkbox state) */
-function editSlaModal(channelId, channelName, currentSla, includeBotMessages = false) {
+/** Modal: Edit SLA (channel_id in private_metadata; channel name shown read-only; includeBotMessages and initialNotifyUserIds for prefill) */
+function editSlaModal(channelId, channelName, currentSla, includeBotMessages = false, initialNotifyUserIds = []) {
   const displayName = channelName ? `#${channelName}` : channelId;
   const includeOption = { value: 'include', text: { type: 'plain_text', text: 'Include messages from bots in the SLA' } };
   return {
@@ -314,6 +325,18 @@ function editSlaModal(channelId, channelName, currentSla, includeBotMessages = f
           initial_options: includeBotMessages ? [includeOption] : [],
         },
         label: { type: 'plain_text', text: 'Include messages from bots' },
+      },
+      {
+        type: 'input',
+        block_id: 'notify_block',
+        element: {
+          type: 'multi_users_select',
+          action_id: 'notify_select',
+          placeholder: { type: 'plain_text', text: 'Select members to notify when a message fails SLA (optional)' },
+          initial_users: Array.isArray(initialNotifyUserIds) ? initialNotifyUserIds : [],
+        },
+        label: { type: 'plain_text', text: 'Notify these members when a message fails SLA (optional)' },
+        optional: true,
       },
     ],
   };

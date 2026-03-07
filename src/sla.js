@@ -114,6 +114,32 @@ async function runSLACheck(client, teamId) {
         messageSnippet: message_snippet,
       });
       await db.removePendingMessage(teamId, channel_id, message_ts);
+
+      const notifyConfig = await db.getNotifyConfigForChannel(teamId, channel_id);
+      const userIds = notifyConfig?.notify_user_ids || [];
+      if (userIds.length > 0) {
+        let permalink = null;
+        try {
+          const res = await client.chat.getPermalink({ channel: channel_id, message_ts });
+          permalink = res?.permalink || null;
+        } catch {
+          // continue without link
+        }
+        const channelDisplay = notifyConfig.channel_name ? `#${notifyConfig.channel_name}` : 'this channel';
+        const text = permalink
+          ? `A message in ${channelDisplay} has failed the SLA. View the message here: ${permalink}`
+          : `A message in ${channelDisplay} has failed the SLA.`;
+        const blocks = permalink
+          ? [{ type: 'section', text: { type: 'mrkdwn', text: `A message in ${channelDisplay} has failed the SLA. View the message <${permalink}|here>.` } }]
+          : [{ type: 'section', text: { type: 'mrkdwn', text: `A message in ${channelDisplay} has failed the SLA.` } }];
+        for (const userId of userIds) {
+          try {
+            await client.chat.postMessage({ channel: userId, text, blocks });
+          } catch (err) {
+            console.error('runSLACheck: failed to DM notify user', userId, err.message);
+          }
+        }
+      }
     }
   }
 }

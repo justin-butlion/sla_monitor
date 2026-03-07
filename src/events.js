@@ -57,6 +57,7 @@ function registerEventHandlers(app) {
     const current = configs.find((c) => c.channel_id === channelId);
     const currentSla = current ? current.sla_hours : 12;
     const includeBotMessages = current ? !!current.include_bot_messages : false;
+    const initialNotifyUserIds = current?.notify_user_ids ?? [];
     let channelName = null;
     try {
       const r = await client.conversations.info({ channel: channelId });
@@ -66,7 +67,7 @@ function registerEventHandlers(app) {
     }
     await client.views.open({
       trigger_id: body.trigger_id,
-      view: views.editSlaModal(channelId, channelName, currentSla, includeBotMessages),
+      view: views.editSlaModal(channelId, channelName, currentSla, includeBotMessages, initialNotifyUserIds),
     });
   });
 
@@ -146,6 +147,7 @@ function registerEventHandlers(app) {
     const slaHours = parseSlaHours(slaRaw);
     const botSelected = view.state.values.bot_block?.include_bots?.selected_options || [];
     const includeBotMessages = botSelected.some((o) => o.value === 'include');
+    const notifyUserIds = view.state.values.notify_block?.notify_select?.selected_users || [];
     if (!channelId) {
       await ack({ response_action: 'errors', errors: { channel_block: 'Please select a channel.' } });
       return;
@@ -167,7 +169,7 @@ function registerEventHandlers(app) {
       // store without name; display will use ID or resolve later
     }
     try {
-      await db.addChannelConfig(teamId, channelId, slaHours, channelName, includeBotMessages);
+      await db.addChannelConfig(teamId, channelId, slaHours, channelName, includeBotMessages, notifyUserIds);
     } catch (err) {
       console.error('add_channel_modal: addChannelConfig failed', err);
       await ack({ response_action: 'errors', errors: { channel_block: 'Could not save. Please try again.' } });
@@ -199,6 +201,7 @@ function registerEventHandlers(app) {
     const slaHours = parseSlaHours(slaRaw);
     const botSelected = view.state.values.bot_block?.include_bots?.selected_options || [];
     const includeBotMessages = botSelected.some((o) => o.value === 'include');
+    const notifyUserIds = view.state.values.notify_block?.notify_select?.selected_users || [];
     if (slaHours === null) {
       await ack({ response_action: 'errors', errors: { sla_block: 'Enter a whole number 1 or greater.' } });
       return;
@@ -207,7 +210,7 @@ function registerEventHandlers(app) {
     const configs = await db.getCurrentChannelConfigs(teamId);
     const current = configs.find((c) => c.channel_id === channelId);
     const channelName = current?.channel_name || null;
-    await db.addChannelConfigRow(teamId, channelId, slaHours, channelName, includeBotMessages);
+    await db.addChannelConfigRow(teamId, channelId, slaHours, channelName, includeBotMessages, notifyUserIds);
     const userId = body.user.id;
     const blocks = await views.buildHomeBlocks(client, teamId);
     await client.views.publish({

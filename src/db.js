@@ -32,6 +32,7 @@ async function initSchema() {
       ALTER TABLE channel_configs ADD COLUMN IF NOT EXISTS team_id VARCHAR(32);
       ALTER TABLE channel_configs ADD COLUMN IF NOT EXISTS channel_name VARCHAR(255);
       ALTER TABLE channel_configs ADD COLUMN IF NOT EXISTS include_bot_messages BOOLEAN NOT NULL DEFAULT false;
+      ALTER TABLE channel_configs ADD COLUMN IF NOT EXISTS notify_user_ids JSONB DEFAULT '[]';
       CREATE INDEX IF NOT EXISTS idx_channel_configs_team_channel_effective
         ON channel_configs (team_id, channel_id, effective_from DESC);
       CREATE INDEX IF NOT EXISTS idx_channel_configs_removed
@@ -155,7 +156,7 @@ async function getCurrentChannelConfigs(teamId) {
   const result = await getPool().query(
     `
     WITH latest AS (
-      SELECT DISTINCT ON (channel_id) id, channel_id, sla_hours, effective_from, channel_name, include_bot_messages
+      SELECT DISTINCT ON (channel_id) id, channel_id, sla_hours, effective_from, channel_name, include_bot_messages, COALESCE(notify_user_ids, '[]'::jsonb) AS notify_user_ids
       FROM channel_configs
       WHERE team_id = $1 AND removed_at IS NULL
       ORDER BY channel_id, effective_from DESC
@@ -171,7 +172,7 @@ async function getCurrentChannelConfigs(teamId) {
 async function getConfigForChannelAtTime(teamId, channelId, messageTs) {
   const ts = typeof messageTs === 'string' ? parseSlackTs(messageTs) : messageTs;
   const result = await getPool().query(
-    `SELECT channel_id, sla_hours, effective_from, include_bot_messages
+    `SELECT channel_id, sla_hours, effective_from, include_bot_messages, COALESCE(notify_user_ids, '[]'::jsonb) AS notify_user_ids
      FROM channel_configs
      WHERE team_id = $1 AND channel_id = $2 AND effective_from <= $3::timestamptz AND removed_at IS NULL
      ORDER BY effective_from DESC
@@ -186,18 +187,35 @@ function parseSlackTs(ts) {
   return parseInt(parts[0], 10) + (parts[1] ? parseInt(parts[1].slice(0, 6), 10) / 1e6 : 0);
 }
 
-/** Add a new channel (or new config row); channelName and includeBotMessages stored; new messages use this config */
-async function addChannelConfig(teamId, channelId, slaHours, channelName = null, includeBotMessages = false) {
+/** Add a new channel (or new config row); channelName, includeBotMessages, notifyUserIds stored; new messages use this config */
+async function addChannelConfig(teamId, channelId, slaHours, channelName = null, includeBotMessages = false, notifyUserIds = []) {
+  const ids = Array.isArray(notifyUserIds) ? notifyUserIds : [];
   await getPool().query(
-    `INSERT INTO channel_configs (team_id, channel_id, sla_hours, effective_from, channel_name, include_bot_messages)
-     VALUES ($1, $2, $3, NOW(), $4, $5)`,
-    [teamId, channelId, slaHours, channelName, !!includeBotMessages]
+    `INSERT INTO channel_configs (team_id, channel_id, sla_hours, effective_from, channel_name, include_bot_messages, notify_user_ids)
+     VALUES ($1, $2, $3, NOW(), $4, $5, $6::jsonb)`,
+    [teamId, channelId, slaHours, channelName, !!includeBotMessages, JSON.stringify(ids)]
   );
 }
 
-/** Edit SLA / bot setting: insert new row so only new messages use new values */
-async function addChannelConfigRow(teamId, channelId, slaHours, channelName = null, includeBotMessages = false) {
-  await addChannelConfig(teamId, channelId, slaHours, channelName, includeBotMessages);
+/** Edit SLA / bot / notify setting: insert new row so only new messages use new values */
+async function addChannelConfigRow(teamId, channelId, slaHours, channelName = null, includeBotMessages = false, notifyUserIds = []) {
+  await addChannelConfig(teamId, channelId, slaHours, channelName, includeBotMessages, notifyUserIds);
+}
+
+/** Notify config for a channel (notify_user_ids and channel_name from latest config) for sending failure DMs */
+async function getNotifyConfigForChannel(teamId, channelId) {
+  const result = await getPool().query(
+    `SELECT channel_name, COALESCE(notify_user_ids, '[]'::jsonb) AS notify_user_ids
+     FROM channel_configs
+     WHERE team_id = $1 AND channel_id = $2 AND removed_at IS NULL
+     ORDER BY effective_from DESC
+     LIMIT 1`,
+    [teamId, channelId]
+  );
+  const row = result.rows[0];
+  if (!row) return { channel_name: null, notify_user_ids: [] };
+  const ids = Array.isArray(row.notify_user_ids) ? row.notify_user_ids : [];
+  return { channel_name: row.channel_name || null, notify_user_ids: ids };
 }
 
 /** Update stored channel name for the latest config of this channel (for display) */
@@ -313,6 +331,7 @@ module.exports = {
   getConfigForChannelAtTime,
   addChannelConfig,
   addChannelConfigRow,
+  getNotifyConfigForChannel,
   updateChannelName,
   removeChannel,
   addPendingMessage,
