@@ -289,9 +289,9 @@ function addChannelModal() {
         element: {
           type: 'multi_users_select',
           action_id: 'notify_select',
-          placeholder: { type: 'plain_text', text: 'Select members to notify when a message fails SLA (optional)' },
+          placeholder: { type: 'plain_text', text: 'Select members to notify when a message fails SLA' },
         },
-        label: { type: 'plain_text', text: 'Notify these members when a message fails SLA (optional)' },
+        label: { type: 'plain_text', text: 'Notify these members when a message fails SLA' },
         optional: true,
       },
     ],
@@ -314,7 +314,7 @@ function editSlaModal(channelId, channelName, currentSla, includeBotMessages = f
         type: 'section',
         text: {
           type: 'mrkdwn',
-          text: `*Channel:* ${displayName}\n_(Cannot be changed)_`,
+          text: `*Channel:* ${displayName}`,
         },
       },
       {
@@ -345,10 +345,10 @@ function editSlaModal(channelId, channelName, currentSla, includeBotMessages = f
         element: {
           type: 'multi_users_select',
           action_id: 'notify_select',
-          placeholder: { type: 'plain_text', text: 'Select members to notify when a message fails SLA (optional)' },
+          placeholder: { type: 'plain_text', text: 'Select members to notify when a message fails SLA' },
           initial_users: Array.isArray(initialNotifyUserIds) ? initialNotifyUserIds : [],
         },
-        label: { type: 'plain_text', text: 'Notify these members when a message fails SLA (optional)' },
+        label: { type: 'plain_text', text: 'Notify these members when a message fails SLA' },
         optional: true,
       },
     ],
