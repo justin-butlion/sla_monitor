@@ -1,6 +1,7 @@
 const db = require('./db');
 const https = require('https');
 const { URL } = require('url');
+const { sendPreSlaAlertEmail } = require('./email');
 
 /**
  * Get the channel config effective at message time (for deciding if message is in scope).
@@ -241,10 +242,28 @@ async function runAlertCheck(client, teamId) {
         }
       }
 
-      // Email + webhooks are stubs for now; they can be implemented by integrating an email provider or HTTP client.
       if (emails.length > 0) {
-        // eslint-disable-next-line no-console
-        console.log('runAlertCheck: email alerts requested for', emails.length, 'recipient(s)', 'for channel', channel_id);
+        const plainChannelName = channelConfig.channel_name || channel_id;
+        const subject = `[SLA Monitor] Message approaching SLA in #${plainChannelName}`;
+        const snippet = (message_snippet || '').trim() || '(no text)';
+        const lines = [];
+        lines.push(`Channel: ${channelDisplay} (${channel_id})`);
+        lines.push(`SLA: ${sla_hours} hour(s)`);
+        lines.push(`Alert offset: ${offset} minute(s) before SLA deadline`);
+        lines.push(`Approx. remaining time: ${remainingMinutes} minute(s)`);
+        lines.push('');
+        lines.push(`Message: ${snippet}`);
+        if (permalink) {
+          lines.push('');
+          lines.push(`Message permalink: ${permalink}`);
+        }
+        lines.push('');
+        lines.push('You’re receiving this because you configured alerts in the SLA Monitor Slack app.');
+        const textBody = lines.join('\n');
+        for (const email of emails) {
+          // eslint-disable-next-line no-await-in-loop
+          await sendPreSlaAlertEmail({ to: email, subject, text: textBody });
+        }
       }
       if (webhooks.length > 0) {
         const payload = {
