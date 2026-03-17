@@ -168,7 +168,7 @@ async function runAlertCheck(client, teamId) {
   const alertsCache = {};
 
   for (const row of pending) {
-    const { channel_id, message_ts, sent_at, sla_hours } = row;
+    const { channel_id, message_ts, sent_at, sla_hours, message_snippet } = row;
     // Compute SLA deadline from stored sla_hours on pending row
     const deadline = new Date(new Date(sent_at).getTime() + sla_hours * 60 * 60 * 1000);
     if (now >= deadline) continue;
@@ -258,6 +258,7 @@ async function runAlertCheck(client, teamId) {
           deadline: deadline.toISOString(),
           alert_offset_minutes: offset,
           remaining_minutes: remainingMinutes,
+          message: message_snippet || '',
         };
         for (const urlString of webhooks) {
           try {

@@ -323,6 +323,7 @@ function registerEventHandlers(app) {
       sla_hours: 6,
       deadline: new Date().toISOString(),
       alert_offset_minutes: 180,
+      message: 'This is a test message',
     };
     for (const urlString of webhooks) {
       try {
