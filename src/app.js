@@ -25,10 +25,6 @@ if (!stateSecret || typeof stateSecret !== 'string') {
 
 const receiver = new ExpressReceiver({
   signingSecret,
-});
-
-const app = new App({
-  receiver,
   clientId,
   clientSecret,
   stateSecret,
@@ -62,6 +58,10 @@ const app = new App({
   installerOptions: {
     directInstall: true,
   },
+});
+
+const app = new App({
+  receiver,
 });
 
 registerEventHandlers(app);
