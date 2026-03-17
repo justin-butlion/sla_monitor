@@ -294,6 +294,47 @@ function registerEventHandlers(app) {
     });
   });
 
+  app.action('send_alert_test', async ({ body, ack }) => {
+    await ack();
+    const teamId = body.team?.id;
+    const channelId = body.view?.private_metadata;
+    const slotValue = body.actions[0].value;
+    const slot = parseInt(String(slotValue || '').trim(), 10);
+    if (!teamId || !channelId || Number.isNaN(slot) || slot < 1) {
+      return;
+    }
+    const values = body.view?.state?.values || {};
+    const webhooksBlock = values[`alert_${slot}_webhooks_block`] || {};
+    const webhooksRaw = webhooksBlock[`alert_${slot}_webhooks_input`]?.value || '';
+    const webhooks = webhooksRaw
+      .split('\n')
+      .map((s) => s.trim())
+      .filter((s) => s.length > 0);
+    if (webhooks.length === 0) {
+      return;
+    }
+    const payload = {
+      type: 'test_pre_sla_alert',
+      team_id: teamId,
+      channel_id: channelId,
+      channel_name: 'test-channel',
+      example_message_ts: '1234567890.000100',
+      example_permalink: 'https://slack.com/example',
+      sla_hours: 6,
+      deadline: new Date().toISOString(),
+      alert_offset_minutes: 180,
+    };
+    for (const urlString of webhooks) {
+      try {
+        // eslint-disable-next-line no-await-in-loop
+        await sla.postJsonWebhook(urlString, payload);
+      } catch (err) {
+        // eslint-disable-next-line no-console
+        console.error('send_alert_test: webhook POST failed for', urlString, err.message);
+      }
+    }
+  });
+
   app.view('remove_channel_confirm_modal', async ({ view, client, body, ack }) => {
     await ack();
     const teamId = body.team?.id;

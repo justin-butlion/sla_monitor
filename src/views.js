@@ -437,6 +437,18 @@ function configureAlertsModal(channelId, channelName, existingAlerts = []) {
           initial_value: webhooks,
         },
         label: { type: 'plain_text', text: 'Webhook URLs' },
+      },
+      {
+        type: 'actions',
+        block_id: `alert_${slot}_test_block`,
+        elements: [
+          {
+            type: 'button',
+            text: { type: 'plain_text', text: 'Send test payload' },
+            action_id: 'send_alert_test',
+            value: String(slot),
+          },
+        ],
       }
     );
   });

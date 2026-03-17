@@ -1,4 +1,6 @@
 const db = require('./db');
+const https = require('https');
+const { URL } = require('url');
 
 /**
  * Get the channel config effective at message time (for deciding if message is in scope).
@@ -245,8 +247,27 @@ async function runAlertCheck(client, teamId) {
         console.log('runAlertCheck: email alerts requested for', emails.length, 'recipient(s)', 'for channel', channel_id);
       }
       if (webhooks.length > 0) {
-        // eslint-disable-next-line no-console
-        console.log('runAlertCheck: webhook alerts requested for', webhooks.length, 'URL(s)', 'for channel', channel_id);
+        const payload = {
+          type: 'pre_sla_alert',
+          team_id: teamId,
+          channel_id,
+          channel_name: channelConfig.channel_name || null,
+          message_ts,
+          permalink: permalink || null,
+          sla_hours,
+          deadline: deadline.toISOString(),
+          alert_offset_minutes: offset,
+          remaining_minutes: remainingMinutes,
+        };
+        for (const urlString of webhooks) {
+          try {
+            // eslint-disable-next-line no-await-in-loop
+            await postJsonWebhook(urlString, payload);
+          } catch (err) {
+            // eslint-disable-next-line no-console
+            console.error('runAlertCheck: webhook POST failed for', urlString, err.message);
+          }
+        }
       }
 
       // Mark this alert as sent to avoid duplicates
@@ -256,6 +277,42 @@ async function runAlertCheck(client, teamId) {
   }
 }
 
+function postJsonWebhook(urlString, payload) {
+  return new Promise((resolve, reject) => {
+    let parsed;
+    try {
+      parsed = new URL(urlString);
+    } catch {
+      reject(new Error('Invalid webhook URL'));
+      return;
+    }
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+      reject(new Error('Unsupported webhook protocol'));
+      return;
+    }
+    const options = {
+      method: 'POST',
+      hostname: parsed.hostname,
+      port: parsed.port || (parsed.protocol === 'https:' ? 443 : 80),
+      path: parsed.pathname + (parsed.search || ''),
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    };
+    const req = https.request(options, (res) => {
+      // drain response
+      res.on('data', () => {});
+      res.on('end', () => resolve());
+    });
+    req.on('error', (err) => reject(err));
+    req.setTimeout(5000, () => {
+      req.destroy(new Error('Webhook request timed out'));
+    });
+    req.write(JSON.stringify(payload));
+    req.end();
+  });
+}
+
 module.exports = {
   getConfigForMessage,
   isSenderExternal,
@@ -263,4 +320,5 @@ module.exports = {
   maybeMarkReplied,
   runSLACheck,
   runAlertCheck,
+  postJsonWebhook,
 };
