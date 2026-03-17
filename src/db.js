@@ -351,7 +351,7 @@ async function getChannelAlertConfigs(teamId, channelId) {
     `SELECT id, alert_offset_minutes, notify_methods
      FROM channel_alert_configs
      WHERE team_id = $1 AND channel_id = $2
-     ORDER BY alert_offset_minutes ASC, id ASC`,
+     ORDER BY id ASC`,
     [teamId, channelId]
   );
   return result.rows.map((row) => ({

@@ -432,11 +432,11 @@ function configureAlertsModal(channelId, channelName, existingAlerts = []) {
         element: {
           type: 'plain_text_input',
           action_id: `alert_${slot}_webhooks_input`,
-          multiline: true,
-          placeholder: { type: 'plain_text', text: 'Webhook URLs, one per line (optional)' },
+          multiline: false,
+          placeholder: { type: 'plain_text', text: 'Webhook URL (optional)' },
           initial_value: webhooks,
         },
-        label: { type: 'plain_text', text: 'Webhook URLs' },
+        label: { type: 'plain_text', text: 'Webhook URL' },
       },
       {
         type: 'actions',
@@ -444,11 +444,14 @@ function configureAlertsModal(channelId, channelName, existingAlerts = []) {
         elements: [
           {
             type: 'button',
-            text: { type: 'plain_text', text: 'Send test payload' },
+            text: { type: 'plain_text', text: 'Send test payload to webhook' },
             action_id: 'send_alert_test',
             value: String(slot),
           },
         ],
+      },
+      {
+        type: 'divider',
       }
     );
   });
