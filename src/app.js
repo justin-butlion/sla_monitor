@@ -1,4 +1,4 @@
-const { App } = require('@slack/bolt');
+const { App, ExpressReceiver } = require('@slack/bolt');
 const path = require('path');
 const db = require('./db');
 const { registerEventHandlers } = require('./events');
@@ -23,8 +23,12 @@ if (!stateSecret || typeof stateSecret !== 'string') {
   throw new Error('Missing SLACK_STATE_SECRET (or SLACK_SIGNING_SECRET). Set it in Render Dashboard > Environment.');
 }
 
-const app = new App({
+const receiver = new ExpressReceiver({
   signingSecret,
+});
+
+const app = new App({
+  receiver,
   clientId,
   clientSecret,
   stateSecret,
@@ -63,18 +67,16 @@ const app = new App({
 registerEventHandlers(app);
 
 // Serve basic marketing site and legal pages from /public without affecting Slack routes.
-const expressApp = app.receiver && app.receiver.app;
-if (expressApp) {
-  expressApp.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, '..', 'public', 'index.html'));
-  });
-  expressApp.get('/privacy', (req, res) => {
-    res.sendFile(path.join(__dirname, '..', 'public', 'privacy.html'));
-  });
-  expressApp.get('/terms', (req, res) => {
-    res.sendFile(path.join(__dirname, '..', 'public', 'terms.html'));
-  });
-}
+const expressApp = receiver.app;
+expressApp.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, '..', 'public', 'index.html'));
+});
+expressApp.get('/privacy', (req, res) => {
+  res.sendFile(path.join(__dirname, '..', 'public', 'privacy.html'));
+});
+expressApp.get('/terms', (req, res) => {
+  res.sendFile(path.join(__dirname, '..', 'public', 'terms.html'));
+});
 
 async function main() {
   await db.initSchema();
