@@ -1,4 +1,5 @@
 const { App } = require('@slack/bolt');
+const path = require('path');
 const db = require('./db');
 const { registerEventHandlers } = require('./events');
 const { startScheduler } = require('./scheduler');
@@ -60,6 +61,20 @@ const app = new App({
 });
 
 registerEventHandlers(app);
+
+// Serve basic marketing site and legal pages from /public without affecting Slack routes.
+const expressApp = app.receiver && app.receiver.app;
+if (expressApp) {
+  expressApp.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, '..', 'public', 'index.html'));
+  });
+  expressApp.get('/privacy', (req, res) => {
+    res.sendFile(path.join(__dirname, '..', 'public', 'privacy.html'));
+  });
+  expressApp.get('/terms', (req, res) => {
+    res.sendFile(path.join(__dirname, '..', 'public', 'terms.html'));
+  });
+}
 
 async function main() {
   await db.initSchema();

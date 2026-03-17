@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SLA Monitor for Slack</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: #111827;
+      background-color: #f9fafb;
+    }
+    header {
+      padding: 2.5rem 1.5rem;
+      background: linear-gradient(135deg, #111827, #1f2937);
+      color: #f9fafb;
+      text-align: center;
+    }
+    header h1 {
+      margin: 0 0 0.5rem;
+      font-size: 2.25rem;
+      font-weight: 700;
+    }
+    header p {
+      margin: 0 0 1.5rem;
+      font-size: 1.1rem;
+      color: #e5e7eb;
+    }
+    .cta-button {
+      display: inline-block;
+      padding: 0.75rem 1.75rem;
+      border-radius: 9999px;
+      background-color: #10b981;
+      color: #111827;
+      font-weight: 600;
+      text-decoration: none;
+      box-shadow: 0 10px 15px rgba(16, 185, 129, 0.25);
+    }
+    .cta-button:hover {
+      background-color: #059669;
+    }
+    main {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 2.5rem 1.5rem 3rem;
+    }
+    section {
+      margin-bottom: 2.5rem;
+    }
+    h2 {
+      font-size: 1.5rem;
+      margin-bottom: 0.75rem;
+    }
+    p {
+      line-height: 1.6;
+      margin: 0.25rem 0 0.75rem;
+    }
+    ul {
+      padding-left: 1.25rem;
+      margin-top: 0.25rem;
+    }
+    li {
+      margin-bottom: 0.4rem;
+    }
+    footer {
+      border-top: 1px solid #e5e7eb;
+      padding: 1.5rem;
+      font-size: 0.9rem;
+      text-align: center;
+      color: #6b7280;
+    }
+    footer a {
+      color: #111827;
+      text-decoration: none;
+      margin: 0 0.5rem;
+    }
+    footer a:hover {
+      text-decoration: underline;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>SLA Monitor for Slack</h1>
+    <p>Track channel SLAs and get alerted before important messages slip through the cracks.</p>
+    <a href="/slack/install" class="cta-button">Add to Slack</a>
+  </header>
+
+  <main>
+    <section>
+      <h2>What SLA Monitor does</h2>
+      <p>SLA Monitor helps your team stay on top of response-time agreements in Slack. Choose the channels you care about, set an SLA (for example, 6 hours to reply), and we’ll watch for messages from people outside your workspace that don’t get timely responses.</p>
+    </section>
+
+    <section>
+      <h2>Key features</h2>
+      <ul>
+        <li>Monitor specific channels with per-channel SLA rules.</li>
+        <li>Track messages from external users (Slack Connect and guests) that need a workspace response.</li>
+        <li>Configure pre-SLA alerts so you’re notified before a message fails.</li>
+        <li>Notify via Slack DM, email, and webhooks when alerts or failures occur.</li>
+        <li>See a clear list of messages that failed the SLA directly in the app’s Home tab.</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>How it works</h2>
+      <ol>
+        <li>Add channels to monitor and set an SLA (hours to reply).</li>
+        <li>Add the SLA Monitor app to those channels.</li>
+        <li>Configure optional pre-SLA alerts and who should be notified.</li>
+        <li>When external messages arrive, SLA Monitor tracks whether your team replies in time.</li>
+        <li>If the SLA is close to failing or is missed, the right people are notified and the message appears in the “Messages that failed the SLA” list.</li>
+      </ol>
+    </section>
+
+    <section>
+      <h2>Get support</h2>
+      <p>If you have questions, need help, or want to share feedback, email us at <a href="mailto:support@sla-monitor.com">support@sla-monitor.com</a>.</p>
+    </section>
+  </main>
+
+  <footer>
+    <div>Contact: <a href="mailto:support@sla-monitor.com">support@sla-monitor.com</a></div>
+    <div>
+      <a href="/privacy">Privacy Policy</a> ·
+      <a href="/terms">Terms of Service</a>
+    </div>
+  </footer>
+</body>
+</html>
+
