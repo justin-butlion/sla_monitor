@@ -71,6 +71,28 @@ function registerEventHandlers(app) {
     });
   });
 
+  app.action('configure_alerts', async ({ body, client, ack }) => {
+    await ack();
+    const teamId = body.team?.id;
+    const channelId = body.actions[0].value;
+    const configs = await db.getCurrentChannelConfigs(teamId);
+    const current = configs.find((c) => c.channel_id === channelId);
+    let channelName = current?.channel_name || null;
+    if (!channelName) {
+      try {
+        const r = await client.conversations.info({ channel: channelId });
+        channelName = r.channel?.name || null;
+      } catch {
+        // keep null, modal will show channel_id
+      }
+    }
+    const existingAlerts = await db.getChannelAlertConfigs(teamId, channelId);
+    await client.views.open({
+      trigger_id: body.trigger_id,
+      view: views.configureAlertsModal(channelId, channelName, existingAlerts),
+    });
+  });
+
   app.action('invite_app_to_channel', async ({ body, client, ack }) => {
     await ack();
     const channelId = body.actions[0].value;
@@ -211,6 +233,59 @@ function registerEventHandlers(app) {
     const current = configs.find((c) => c.channel_id === channelId);
     const channelName = current?.channel_name || null;
     await db.addChannelConfigRow(teamId, channelId, slaHours, channelName, includeBotMessages, notifyUserIds);
+    const userId = body.user.id;
+    const blocks = await views.buildHomeBlocks(client, teamId);
+    await client.views.publish({
+      user_id: userId,
+      view: { type: 'home', blocks },
+    });
+  });
+
+  app.view('configure_alerts_modal', async ({ view, client, body, ack }) => {
+    const teamId = body.team?.id;
+    const channelId = view.private_metadata;
+    const alerts = [];
+    const values = view.state.values || {};
+    const maxSlots = 3;
+    for (let slot = 1; slot <= maxSlots; slot += 1) {
+      const offsetBlock = values[`alert_${slot}_offset_block`] || {};
+      const offsetRaw = offsetBlock[`alert_${slot}_offset_input`]?.value;
+      const offset = parseInt(String(offsetRaw || '').trim(), 10);
+      if (!offset || Number.isNaN(offset) || offset <= 0) {
+        continue;
+      }
+      const dmBlock = values[`alert_${slot}_dm_block`] || {};
+      const dmUsers = dmBlock[`alert_${slot}_dm_select`]?.selected_users || [];
+      const emailsBlock = values[`alert_${slot}_emails_block`] || {};
+      const emailsRaw = emailsBlock[`alert_${slot}_emails_input`]?.value || '';
+      const webhooksBlock = values[`alert_${slot}_webhooks_block`] || {};
+      const webhooksRaw = webhooksBlock[`alert_${slot}_webhooks_input`]?.value || '';
+
+      const emails = emailsRaw
+        .split(',')
+        .map((s) => s.trim())
+        .filter((s) => s.length > 0);
+      const webhooks = webhooksRaw
+        .split('\n')
+        .map((s) => s.trim())
+        .filter((s) => s.length > 0);
+
+      if (dmUsers.length === 0 && emails.length === 0 && webhooks.length === 0) {
+        continue;
+      }
+
+      alerts.push({
+        alert_offset_minutes: offset,
+        notify_methods: {
+          dm_user_ids: dmUsers,
+          emails,
+          webhooks,
+        },
+      });
+    }
+
+    await ack();
+    await db.upsertChannelAlertConfigs(teamId, channelId, alerts);
     const userId = body.user.id;
     const blocks = await views.buildHomeBlocks(client, teamId);
     await client.views.publish({

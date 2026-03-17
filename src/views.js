@@ -62,6 +62,7 @@ function channelsSectionBlocks(channels, client, isMemberByChannel = {}) {
         elements.push({ type: 'button', text: { type: 'plain_text', text: 'Add app to channel' }, action_id: 'invite_app_to_channel', value: ch.channel_id });
       }
       elements.push({ type: 'button', text: { type: 'plain_text', text: 'Edit SLA' }, action_id: 'edit_sla', value: ch.channel_id });
+      elements.push({ type: 'button', text: { type: 'plain_text', text: 'Configure alerts' }, action_id: 'configure_alerts', value: ch.channel_id });
       elements.push({ type: 'button', text: { type: 'plain_text', text: 'Remove' }, action_id: 'remove_channel', value: ch.channel_id });
       blocks.push({ type: 'actions', elements });
     }
@@ -218,6 +219,8 @@ async function buildHomeBlocks(client, teamId) {
     })
   );
 
+  // Pre-SLA alert configuration is edited per-channel via Configure alerts button; no summary yet.
+
   const failedAgoByRowId = {};
   await Promise.all(
     failed.map(async (row) => {
@@ -355,6 +358,99 @@ function editSlaModal(channelId, channelName, currentSla, includeBotMessages = f
   };
 }
 
+/** Modal: Configure pre-SLA alerts for a channel */
+function configureAlertsModal(channelId, channelName, existingAlerts = []) {
+  const displayName = channelName ? `#${channelName}` : channelId;
+  const maxSlots = 3;
+  const normalized = Array.isArray(existingAlerts) ? existingAlerts.slice(0, maxSlots) : [];
+  while (normalized.length < maxSlots) normalized.push(null);
+  const blocks = [
+    {
+      type: 'section',
+      text: {
+        type: 'mrkdwn',
+        text: `*Channel:* ${displayName}`,
+      },
+    },
+  ];
+  normalized.forEach((alert, index) => {
+    const slot = index + 1;
+    const offset = alert?.alert_offset_minutes || '';
+    const methods = alert?.notify_methods || {};
+    const dmUserIds = Array.isArray(methods.dm_user_ids) ? methods.dm_user_ids : [];
+    const emails = Array.isArray(methods.emails) ? methods.emails.join(', ') : '';
+    const webhooks = Array.isArray(methods.webhooks) ? methods.webhooks.join('\n') : '';
+    blocks.push(
+      {
+        type: 'section',
+        text: {
+          type: 'mrkdwn',
+          text: `*Alert ${slot}*`,
+        },
+      },
+      {
+        type: 'input',
+        block_id: `alert_${slot}_offset_block`,
+        optional: true,
+        element: {
+          type: 'plain_text_input',
+          action_id: `alert_${slot}_offset_input`,
+          placeholder: { type: 'plain_text', text: 'Minutes before SLA (e.g. 180)' },
+          initial_value: offset ? String(offset) : '',
+        },
+        label: { type: 'plain_text', text: 'Alert offset (minutes before SLA)' },
+      },
+      {
+        type: 'input',
+        block_id: `alert_${slot}_dm_block`,
+        optional: true,
+        element: {
+          type: 'multi_users_select',
+          action_id: `alert_${slot}_dm_select`,
+          placeholder: { type: 'plain_text', text: 'Select members to DM when alert fires' },
+          initial_users: dmUserIds,
+        },
+        label: { type: 'plain_text', text: 'Slack members to notify (DM)' },
+      },
+      {
+        type: 'input',
+        block_id: `alert_${slot}_emails_block`,
+        optional: true,
+        element: {
+          type: 'plain_text_input',
+          action_id: `alert_${slot}_emails_input`,
+          multiline: false,
+          placeholder: { type: 'plain_text', text: 'Emails, comma-separated (optional)' },
+          initial_value: emails,
+        },
+        label: { type: 'plain_text', text: 'Email addresses' },
+      },
+      {
+        type: 'input',
+        block_id: `alert_${slot}_webhooks_block`,
+        optional: true,
+        element: {
+          type: 'plain_text_input',
+          action_id: `alert_${slot}_webhooks_input`,
+          multiline: true,
+          placeholder: { type: 'plain_text', text: 'Webhook URLs, one per line (optional)' },
+          initial_value: webhooks,
+        },
+        label: { type: 'plain_text', text: 'Webhook URLs' },
+      }
+    );
+  });
+  return {
+    type: 'modal',
+    callback_id: 'configure_alerts_modal',
+    private_metadata: channelId,
+    title: { type: 'plain_text', text: 'Configure alerts' },
+    submit: { type: 'plain_text', text: 'Save' },
+    close: { type: 'plain_text', text: 'Cancel' },
+    blocks,
+  };
+}
+
 /** Modal: Instructions to add app to channel (with deep link to open channel) */
 function inviteAppToChannelModal(channelId, teamId) {
   const openUrl = teamId
@@ -435,6 +531,7 @@ module.exports = {
   resolveUserNames,
   addChannelModal,
   editSlaModal,
+  configureAlertsModal,
   inviteAppToChannelModal,
   removeChannelConfirmModal,
   removeFailedConfirmModal,

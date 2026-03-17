@@ -14,6 +14,7 @@ async function runAllWorkspaces() {
       const token = installation?.bot?.token;
       if (!token) continue;
       const client = new WebClient(token);
+      await sla.runAlertCheck(client, teamId);
       await sla.runSLACheck(client, teamId);
     } catch (err) {
       console.error(`SLA check error for team ${teamId}:`, err.message);

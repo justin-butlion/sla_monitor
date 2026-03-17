@@ -77,6 +77,25 @@ async function initSchema() {
       ALTER TABLE failed_messages ADD COLUMN IF NOT EXISTS team_id VARCHAR(32);
       CREATE INDEX IF NOT EXISTS idx_failed_messages_team ON failed_messages (team_id);
 
+      CREATE TABLE IF NOT EXISTS channel_alert_configs (
+        id SERIAL PRIMARY KEY,
+        team_id VARCHAR(32) NOT NULL,
+        channel_id VARCHAR(32) NOT NULL,
+        alert_offset_minutes INTEGER NOT NULL,
+        notify_methods JSONB NOT NULL
+      );
+      CREATE INDEX IF NOT EXISTS idx_channel_alert_configs_team_channel
+        ON channel_alert_configs (team_id, channel_id);
+
+      CREATE TABLE IF NOT EXISTS pending_message_alerts_sent (
+        team_id VARCHAR(32) NOT NULL,
+        channel_id VARCHAR(32) NOT NULL,
+        message_ts VARCHAR(32) NOT NULL,
+        alert_offset_minutes INTEGER NOT NULL,
+        sent_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        PRIMARY KEY (team_id, channel_id, message_ts, alert_offset_minutes)
+      );
+
     `);
     const tableExists = await client.query(`
       SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'app_settings'
@@ -327,6 +346,73 @@ async function getPendingByChannelAndTs(teamId, channelId, messageTs) {
   return result.rows[0] || null;
 }
 
+async function getChannelAlertConfigs(teamId, channelId) {
+  const result = await getPool().query(
+    `SELECT id, alert_offset_minutes, notify_methods
+     FROM channel_alert_configs
+     WHERE team_id = $1 AND channel_id = $2
+     ORDER BY alert_offset_minutes ASC, id ASC`,
+    [teamId, channelId]
+  );
+  return result.rows.map((row) => ({
+    id: row.id,
+    alert_offset_minutes: row.alert_offset_minutes,
+    notify_methods: typeof row.notify_methods === 'object' ? row.notify_methods : JSON.parse(row.notify_methods || '{}'),
+  }));
+}
+
+async function upsertChannelAlertConfigs(teamId, channelId, alerts) {
+  const client = await getPool().connect();
+  try {
+    await client.query('BEGIN');
+    await client.query(
+      'DELETE FROM channel_alert_configs WHERE team_id = $1 AND channel_id = $2',
+      [teamId, channelId]
+    );
+    for (const alert of alerts) {
+      const offset = alert.alert_offset_minutes;
+      if (!offset || offset <= 0) continue;
+      const methods = alert.notify_methods && typeof alert.notify_methods === 'object' ? alert.notify_methods : {};
+      if (
+        (!Array.isArray(methods.dm_user_ids) || methods.dm_user_ids.length === 0) &&
+        (!Array.isArray(methods.emails) || methods.emails.length === 0) &&
+        (!Array.isArray(methods.webhooks) || methods.webhooks.length === 0)
+      ) {
+        continue;
+      }
+      await client.query(
+        `INSERT INTO channel_alert_configs (team_id, channel_id, alert_offset_minutes, notify_methods)
+         VALUES ($1, $2, $3, $4::jsonb)`,
+        [teamId, channelId, offset, JSON.stringify(methods)]
+      );
+    }
+    await client.query('COMMIT');
+  } catch (e) {
+    await client.query('ROLLBACK');
+    throw e;
+  } finally {
+    client.release();
+  }
+}
+
+async function hasAlertBeenSent(teamId, channelId, messageTs, offsetMinutes) {
+  const result = await getPool().query(
+    `SELECT 1 FROM pending_message_alerts_sent
+     WHERE team_id = $1 AND channel_id = $2 AND message_ts = $3 AND alert_offset_minutes = $4`,
+    [teamId, channelId, messageTs, offsetMinutes]
+  );
+  return result.rows.length > 0;
+}
+
+async function markAlertSent(teamId, channelId, messageTs, offsetMinutes) {
+  await getPool().query(
+    `INSERT INTO pending_message_alerts_sent (team_id, channel_id, message_ts, alert_offset_minutes)
+     VALUES ($1, $2, $3, $4)
+     ON CONFLICT (team_id, channel_id, message_ts, alert_offset_minutes) DO NOTHING`,
+    [teamId, channelId, messageTs, offsetMinutes]
+  );
+}
+
 module.exports = {
   getPool,
   initSchema,
@@ -351,5 +437,9 @@ module.exports = {
   getFailedMessageById,
   removeFailedMessage,
   getPendingByChannelAndTs,
+  getChannelAlertConfigs,
+  upsertChannelAlertConfigs,
+  hasAlertBeenSent,
+  markAlertSent,
   parseSlackTs,
 };

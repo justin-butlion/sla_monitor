@@ -156,10 +156,111 @@ async function runSLACheck(client, teamId) {
   }
 }
 
+/**
+ * Run pre-SLA alert check: for each pending message, send alerts before SLA deadline according to channel_alert_configs.
+ */
+async function runAlertCheck(client, teamId) {
+  const pending = await db.getPendingMessages(teamId);
+  const now = new Date();
+  const configCache = {};
+  const alertsCache = {};
+
+  for (const row of pending) {
+    const { channel_id, message_ts, sent_at, sla_hours } = row;
+    // Compute SLA deadline from stored sla_hours on pending row
+    const deadline = new Date(new Date(sent_at).getTime() + sla_hours * 60 * 60 * 1000);
+    if (now >= deadline) continue;
+
+    const key = `${teamId}-${channel_id}`;
+    let alerts = alertsCache[key];
+    if (!alerts) {
+      alerts = await db.getChannelAlertConfigs(teamId, channel_id);
+      alertsCache[key] = alerts;
+    }
+    if (!alerts || alerts.length === 0) continue;
+
+    for (const alert of alerts) {
+      const offset = alert.alert_offset_minutes;
+      if (!offset || offset <= 0) continue;
+      const alertTime = new Date(deadline.getTime() - offset * 60 * 1000);
+      if (now < alertTime || now >= deadline) continue;
+      // avoid duplicates
+      // eslint-disable-next-line no-await-in-loop
+      const alreadySent = await db.hasAlertBeenSent(teamId, channel_id, message_ts, offset);
+      if (alreadySent) continue;
+
+      const methods = alert.notify_methods || {};
+      const dmUserIds = Array.isArray(methods.dm_user_ids) ? methods.dm_user_ids : [];
+      const emails = Array.isArray(methods.emails) ? methods.emails : [];
+      const webhooks = Array.isArray(methods.webhooks) ? methods.webhooks : [];
+      if (dmUserIds.length === 0 && emails.length === 0 && webhooks.length === 0) continue;
+
+      let permalink = null;
+      try {
+        const res = await client.chat.getPermalink({ channel: channel_id, message_ts });
+        permalink = res?.permalink || null;
+      } catch {
+        // continue without link
+      }
+      const remainingMs = deadline.getTime() - now.getTime();
+      const remainingMinutes = Math.max(1, Math.round(remainingMs / (60 * 1000)));
+      const channelConfigKey = `${teamId}-${channel_id}`;
+      let channelConfig = configCache[channelConfigKey];
+      if (!channelConfig) {
+        channelConfig = await db.getNotifyConfigForChannel(teamId, channel_id);
+        configCache[channelConfigKey] = channelConfig;
+      }
+      const channelDisplay = channelConfig.channel_name ? `#${channelConfig.channel_name}` : 'this channel';
+
+      const text = permalink
+        ? `A message in ${channelDisplay} is approaching its SLA. Approximately ${remainingMinutes} minute(s) remain before it fails. View the message here: ${permalink}`
+        : `A message in ${channelDisplay} is approaching its SLA. Approximately ${remainingMinutes} minute(s) remain before it fails.`;
+      const blocks = permalink
+        ? [{ type: 'section', text: { type: 'mrkdwn', text: `A message in ${channelDisplay} is approaching its SLA. Approximately ${remainingMinutes} minute(s) remain before it fails. View the message <${permalink}|here>.` } }]
+        : [{ type: 'section', text: { type: 'mrkdwn', text: `A message in ${channelDisplay} is approaching its SLA. Approximately ${remainingMinutes} minute(s) remain before it fails.` } }];
+
+      // Slack DMs
+      for (const userId of dmUserIds) {
+        try {
+          // eslint-disable-next-line no-await-in-loop
+          const openRes = await client.conversations.open({ users: userId });
+          const dmChannelId = openRes?.channel?.id;
+          if (!dmChannelId) {
+            // eslint-disable-next-line no-console
+            console.error('runAlertCheck: conversations.open did not return channel for user', userId, 'response:', openRes);
+            continue;
+          }
+          // eslint-disable-next-line no-await-in-loop
+          await client.chat.postMessage({ channel: dmChannelId, text, blocks });
+        } catch (err) {
+          const slackError = err.data?.error ?? err.data ?? err.message;
+          // eslint-disable-next-line no-console
+          console.error('runAlertCheck: failed to DM alert user', userId, err.message, 'Slack error:', slackError);
+        }
+      }
+
+      // Email + webhooks are stubs for now; they can be implemented by integrating an email provider or HTTP client.
+      if (emails.length > 0) {
+        // eslint-disable-next-line no-console
+        console.log('runAlertCheck: email alerts requested for', emails.length, 'recipient(s)', 'for channel', channel_id);
+      }
+      if (webhooks.length > 0) {
+        // eslint-disable-next-line no-console
+        console.log('runAlertCheck: webhook alerts requested for', webhooks.length, 'URL(s)', 'for channel', channel_id);
+      }
+
+      // Mark this alert as sent to avoid duplicates
+      // eslint-disable-next-line no-await-in-loop
+      await db.markAlertSent(teamId, channel_id, message_ts, offset);
+    }
+  }
+}
+
 module.exports = {
   getConfigForMessage,
   isSenderExternal,
   maybeRecordPendingMessage,
   maybeMarkReplied,
   runSLACheck,
+  runAlertCheck,
 };
