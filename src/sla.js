@@ -253,7 +253,7 @@ async function runAlertCheck(client, teamId) {
           channel_id,
           channel_name: channelConfig.channel_name || null,
           message_ts,
-          permalink: permalink || null,
+          message_permalink: permalink || null,
           sla_hours,
           deadline: deadline.toISOString(),
           alert_offset_minutes: offset,

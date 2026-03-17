@@ -319,7 +319,7 @@ function registerEventHandlers(app) {
       channel_id: channelId,
       channel_name: 'test-channel',
       example_message_ts: '1234567890.000100',
-      example_permalink: 'https://slack.com/example',
+      message_permalink: 'https://slack.com/example',
       sla_hours: 6,
       deadline: new Date().toISOString(),
       alert_offset_minutes: 180,
