@@ -4,121 +4,354 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>SLA Monitor for Slack</title>
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="192x192" href="/logo.png">
   <style>
+    :root {
+      --bg: #f3f7fb;
+      --text: #0f172a;
+      --muted: #334155;
+      --brand: #0a3c67;
+      --brand-dark: #072a4a;
+      --accent: #38b46e;
+      --card: #ffffff;
+      --border: #dbe5ef;
+    }
+    * {
+      box-sizing: border-box;
+    }
     body {
       margin: 0;
-      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      color: #111827;
-      background-color: #f9fafb;
+      font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(circle at 20% 10%, #e8f1fa 0%, transparent 45%),
+        radial-gradient(circle at 80% 20%, #edf4ff 0%, transparent 40%),
+        var(--bg);
+      line-height: 1.6;
     }
-    header {
-      padding: 2.5rem 1.5rem;
-      background: linear-gradient(135deg, #111827, #1f2937);
-      color: #f9fafb;
-      text-align: center;
+    .container {
+      max-width: 1080px;
+      margin: 0 auto;
+      padding: 0 1.25rem;
     }
-    header h1 {
-      margin: 0 0 0.5rem;
-      font-size: 2.25rem;
-      font-weight: 700;
+    .hero {
+      padding: 3rem 0 3.5rem;
     }
-    header p {
-      margin: 0 0 1.5rem;
-      font-size: 1.1rem;
-      color: #e5e7eb;
+    .hero-card {
+      display: grid;
+      grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
+      gap: 2rem;
+      padding: 2.5rem;
+      border-radius: 24px;
+      background: linear-gradient(135deg, #0d3a63, #0a2c4d);
+      color: #f8fbff;
+      box-shadow: 0 22px 45px rgba(11, 38, 67, 0.25);
+    }
+    .brand-row {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.7rem;
+      margin-bottom: 1.1rem;
+      font-weight: 600;
+      color: #cbe4ff;
+      letter-spacing: 0.02em;
+    }
+    .brand-row img {
+      width: 28px;
+      height: 28px;
+      border-radius: 8px;
+    }
+    h1 {
+      margin: 0 0 0.85rem;
+      font-size: clamp(2rem, 3.2vw, 3rem);
+      line-height: 1.15;
+    }
+    .hero p {
+      margin: 0;
+      color: #dbeafe;
+      max-width: 58ch;
+      font-size: 1.05rem;
+    }
+    .cta-row {
+      margin-top: 1.6rem;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.9rem 1.1rem;
     }
     .cta-button {
       display: inline-block;
-      padding: 0.75rem 1.75rem;
+      padding: 0.78rem 1.55rem;
       border-radius: 9999px;
-      background-color: #10b981;
-      color: #111827;
-      font-weight: 600;
+      background-color: var(--accent);
+      color: #06243f;
+      font-weight: 700;
       text-decoration: none;
-      box-shadow: 0 10px 15px rgba(16, 185, 129, 0.25);
+      transition: transform 0.15s ease, box-shadow 0.15s ease;
+      box-shadow: 0 10px 18px rgba(56, 180, 110, 0.3);
     }
     .cta-button:hover {
-      background-color: #059669;
+      transform: translateY(-1px);
+      box-shadow: 0 14px 20px rgba(56, 180, 110, 0.35);
+    }
+    .hero-note {
+      font-size: 0.95rem;
+      color: #d5e9ff;
+    }
+    .hero-art {
+      display: grid;
+      place-items: center;
+      border-radius: 20px;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      min-height: 220px;
+      padding: 1rem;
+    }
+    .hero-art img {
+      width: min(280px, 95%);
+      height: auto;
+      border-radius: 16px;
+      background: rgba(255, 255, 255, 0.85);
+      padding: 0.5rem;
     }
     main {
-      max-width: 900px;
-      margin: 0 auto;
-      padding: 2.5rem 1.5rem 3rem;
+      padding: 0 0 3.5rem;
     }
     section {
-      margin-bottom: 2.5rem;
+      margin-bottom: 2rem;
     }
-    h2 {
-      font-size: 1.5rem;
-      margin-bottom: 0.75rem;
+    .section-title {
+      margin: 0 0 0.9rem;
+      font-size: clamp(1.45rem, 2.3vw, 1.9rem);
+      color: var(--brand-dark);
     }
-    p {
-      line-height: 1.6;
-      margin: 0.25rem 0 0.75rem;
+    .lead-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 1.2rem 1.2rem 1.3rem;
+      box-shadow: 0 8px 20px rgba(13, 35, 58, 0.06);
     }
-    ul {
-      padding-left: 1.25rem;
-      margin-top: 0.25rem;
+    .feature-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 1rem;
     }
-    li {
-      margin-bottom: 0.4rem;
+    .feature {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 1rem;
+      box-shadow: 0 6px 16px rgba(14, 39, 66, 0.06);
     }
-    footer {
-      border-top: 1px solid #e5e7eb;
-      padding: 1.5rem;
-      font-size: 0.9rem;
+    .feature h3 {
+      margin: 0 0 0.4rem;
+      font-size: 1.03rem;
+      color: var(--brand);
+    }
+    .feature p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.95rem;
+    }
+    .how-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 1.1rem 1.2rem;
+    }
+    ol {
+      margin: 0.25rem 0 0;
+      padding-left: 1.15rem;
+      color: var(--muted);
+    }
+    ol li + li {
+      margin-top: 0.45rem;
+    }
+    .faq-list {
+      display: grid;
+      gap: 0.75rem;
+    }
+    details {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 0.9rem 1rem;
+      box-shadow: 0 6px 16px rgba(14, 39, 66, 0.05);
+    }
+    summary {
+      cursor: pointer;
+      font-weight: 700;
+      color: var(--brand-dark);
+      list-style: none;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+    }
+    summary::-webkit-details-marker {
+      display: none;
+    }
+    summary::after {
+      content: "+";
+      font-size: 1.15rem;
+      color: var(--brand);
+    }
+    details[open] summary::after {
+      content: "−";
+    }
+    details p {
+      margin: 0.6rem 0 0;
+      color: var(--muted);
+    }
+    .support {
+      margin-top: 2.2rem;
       text-align: center;
-      color: #6b7280;
+      color: var(--muted);
     }
+    .support a,
     footer a {
-      color: #111827;
+      color: var(--brand-dark);
       text-decoration: none;
-      margin: 0 0.5rem;
+      font-weight: 600;
     }
+    .support a:hover,
     footer a:hover {
       text-decoration: underline;
+    }
+    footer {
+      border-top: 1px solid var(--border);
+      padding: 1.4rem 1.25rem 1.7rem;
+      font-size: 0.9rem;
+      text-align: center;
+      color: #64748b;
+    }
+    @media (max-width: 940px) {
+      .hero-card {
+        grid-template-columns: 1fr;
+      }
+      .hero-art {
+        min-height: 0;
+      }
+      .feature-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+    @media (max-width: 640px) {
+      .hero {
+        padding-top: 2rem;
+      }
+      .hero-card {
+        padding: 1.35rem;
+      }
+      .feature-grid {
+        grid-template-columns: 1fr;
+      }
+      .cta-row {
+        align-items: flex-start;
+      }
     }
   </style>
 </head>
 <body>
-  <header>
-    <h1>SLA Monitor for Slack</h1>
-    <p>Track channel SLAs and get alerted before important messages slip through the cracks.</p>
-    <a href="/slack/install" class="cta-button">Add to Slack</a>
+  <header class="hero">
+    <div class="container">
+      <div class="hero-card">
+        <div>
+          <div class="brand-row">
+            <img src="/logo.png" alt="SLA Monitor logo">
+            <span>SLA Monitor</span>
+          </div>
+          <h1>Track Slack response SLAs before they slip.</h1>
+          <p>
+            Monitor external messages in the channels that matter most, receive pre-SLA alerts,
+            and keep every workspace accountable to response-time commitments.
+          </p>
+          <div class="cta-row">
+            <a href="/slack/install" class="cta-button">Add to Slack</a>
+            <span class="hero-note">Install in minutes. No bot clutter in channels.</span>
+          </div>
+        </div>
+        <div class="hero-art">
+          <img src="/logo.png" alt="SLA Monitor app icon">
+        </div>
+      </div>
+    </div>
   </header>
 
-  <main>
+  <main class="container">
     <section>
-      <h2>What SLA Monitor does</h2>
-      <p>SLA Monitor helps your team stay on top of response-time agreements in Slack. Choose the channels you care about, set an SLA (for example, 6 hours to reply), and we’ll watch for messages from people outside your workspace that don’t get timely responses.</p>
+      <h2 class="section-title">What SLA Monitor does</h2>
+      <div class="lead-card">
+        SLA Monitor helps your team stay on top of response-time agreements in Slack. Choose the channels you care about, set an SLA (for example, 6 hours to reply), and we watch for messages from people outside your workspace that do not receive timely responses.
+      </div>
     </section>
 
     <section>
-      <h2>Key features</h2>
-      <ul>
-        <li>Monitor specific channels with per-channel SLA rules.</li>
-        <li>Track messages from external users (Slack Connect and guests) that need a workspace response.</li>
-        <li>Configure pre-SLA alerts so you’re notified before a message fails.</li>
-        <li>Notify via Slack DM, email, and webhooks when alerts or failures occur.</li>
-        <li>See a clear list of messages that failed the SLA directly in the app’s Home tab.</li>
-      </ul>
+      <h2 class="section-title">Key features</h2>
+      <div class="feature-grid">
+        <article class="feature">
+          <h3>Channel-level SLA rules</h3>
+          <p>Monitor specific channels with custom SLA windows tailored to each workflow.</p>
+        </article>
+        <article class="feature">
+          <h3>External message tracking</h3>
+          <p>Identify Slack Connect and guest messages that need a response from your workspace.</p>
+        </article>
+        <article class="feature">
+          <h3>Pre-SLA alerts</h3>
+          <p>Alert teammates before a message misses SLA so response gaps are fixed proactively.</p>
+        </article>
+        <article class="feature">
+          <h3>Flexible notifications</h3>
+          <p>Notify through Slack DM, email, and webhooks when alerts or failures are triggered.</p>
+        </article>
+        <article class="feature">
+          <h3>Actionable failed list</h3>
+          <p>Review missed messages in the Home tab with direct links and quick cleanup actions.</p>
+        </article>
+        <article class="feature">
+          <h3>Workspace-safe setup</h3>
+          <p>Install once and manage monitored channels and alert recipients without extra clutter.</p>
+        </article>
+      </div>
     </section>
 
     <section>
-      <h2>How it works</h2>
-      <ol>
-        <li>Add channels to monitor and set an SLA (hours to reply).</li>
-        <li>Add the SLA Monitor app to those channels.</li>
-        <li>Configure optional pre-SLA alerts and who should be notified.</li>
-        <li>When external messages arrive, SLA Monitor tracks whether your team replies in time.</li>
-        <li>If the SLA is close to failing or is missed, the right people are notified and the message appears in the “Messages that failed the SLA” list.</li>
-      </ol>
+      <h2 class="section-title">How it works</h2>
+      <div class="how-card">
+        <ol>
+          <li>Add channels to monitor and set an SLA (hours to reply).</li>
+          <li>Add the SLA Monitor app to those channels.</li>
+          <li>Configure optional pre-SLA alerts and who should be notified.</li>
+          <li>When external messages arrive, SLA Monitor tracks whether your team replies in time.</li>
+          <li>If the SLA is close to failing or is missed, the right people are notified and the message appears in “Messages that failed the SLA”.</li>
+        </ol>
+      </div>
     </section>
 
     <section>
-      <h2>Get support</h2>
-      <p>If you have questions, need help, or want to share feedback, email us at <a href="mailto:support@sla-monitor.com">support@sla-monitor.com</a>.</p>
+      <h2 class="section-title">Frequently asked questions</h2>
+      <div class="faq-list">
+        <details>
+          <summary>How much does SLA Monitor cost?</summary>
+          <p>SLA Monitor is free for now while we continue improving the product.</p>
+        </details>
+        <details>
+          <summary>What types of alerts do you support?</summary>
+          <p>SLA Monitor supports Slack DM alerts, email alerts, and webhook notifications for pre-SLA and SLA-failed workflows.</p>
+        </details>
+        <details>
+          <summary>What information is stored in your database and why?</summary>
+          <p>We store workspace/team identifiers, installation data, monitored channel settings, alert configuration, and message metadata/snippets required to evaluate SLA status and send notifications. This data is used only to operate SLA tracking, surface failed messages, and deliver configured alerts.</p>
+        </details>
+      </div>
     </section>
+
+    <p class="support">
+      Questions or feedback? Email <a href="mailto:support@sla-monitor.com">support@sla-monitor.com</a>.
+    </p>
   </main>
 
   <footer>
