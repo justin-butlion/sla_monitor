@@ -17,7 +17,7 @@ The app supports **multiple workspaces**: each workspace installs the app via OA
 
 1. Go to [api.slack.com/apps](https://api.slack.com/apps) and create a new app (or use an existing one).
 2. Under **OAuth & Permissions**:
-   - Add these **Bot Token Scopes**: `channels:history`, `channels:read`, `groups:history`, `groups:read`, `users:read`, `chat:write`.
+   - Add these **Bot Token Scopes**: `channels:history`, `channels:read`, `groups:history`, `groups:read`, `users:read`, `users:read.email`, `chat:write`.
    - Under **Redirect URLs**, add `https://<your-host>/slack/oauth_redirect` (replace with your deployed URL; for local dev use an ngrok URL).
 3. Under **Basic Information**, note:
    - **Signing Secret**
@@ -59,7 +59,18 @@ Use a public URL (e.g. [ngrok](https://ngrok.com)) for the Request URL and Redir
 | `SLACK_CLIENT_SECRET` | OAuth Client Secret |
 | `SLACK_STATE_SECRET` | Secret for OAuth state (optional; defaults to `SLACK_SIGNING_SECRET`) |
 | `DATABASE_URL` | PostgreSQL connection string |
+| `INSTALL_NOTIFICATIONS_WEBHOOK_URL` | Optional Slack Incoming Webhook URL for install/reinstall notifications |
 | `PORT` | Optional; default 3000 |
+
+### Optional: Install notifications channel
+
+If you want a Slack message whenever a workspace installs or reinstalls SLA Monitor:
+
+1. Create a private channel in your own Slack workspace.
+2. Create an [Incoming Webhook](https://api.slack.com/messaging/webhooks) for that channel.
+3. Set `INSTALL_NOTIFICATIONS_WEBHOOK_URL` in your deployment environment.
+
+When configured, the app posts one message per successful install event, tagged as `installed` or `reinstalled`. If the webhook is missing or fails, installation still succeeds.
 
 ## Deploy to Render
 

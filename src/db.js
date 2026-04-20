@@ -164,6 +164,17 @@ async function fetchInstallation(teamId) {
   return typeof row.installation === 'object' ? row.installation : JSON.parse(row.installation);
 }
 
+/** Fetch installation metadata used for lifecycle events */
+async function getInstallationMeta(teamId) {
+  const result = await getPool().query(
+    `SELECT created_at, last_installed_at, contact_email
+     FROM installations
+     WHERE team_id = $1`,
+    [teamId]
+  );
+  return result.rows[0] || null;
+}
+
 /** Fetch stored workspace contact email */
 async function getWorkspaceContactEmail(teamId) {
   const result = await getPool().query(
@@ -468,6 +479,7 @@ module.exports = {
   initSchema,
   storeInstallation,
   fetchInstallation,
+  getInstallationMeta,
   getWorkspaceContactEmail,
   setWorkspaceContactEmail,
   deleteInstallation,

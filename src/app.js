@@ -2,6 +2,7 @@ const { App, ExpressReceiver } = require('@slack/bolt');
 const { WebClient } = require('@slack/web-api');
 const path = require('path');
 const db = require('./db');
+const { notifyInstallationEvent } = require('./installNotifications');
 const { registerEventHandlers } = require('./events');
 const { startScheduler } = require('./scheduler');
 
@@ -43,9 +44,18 @@ const receiver = new ExpressReceiver({
     storeInstallation: async (installation) => {
       const teamId = installation.team?.id || installation.enterprise?.id;
       if (!teamId) throw new Error('No team or enterprise id in installation');
+      const existingInstallMeta = await db.getInstallationMeta(teamId);
       const installerUserId = getInstallerUserId(installation);
       const installerEmail = await resolveInstallerEmail(installation, installerUserId);
       await db.storeInstallation(teamId, installation, installerEmail);
+      const eventType = existingInstallMeta ? 'reinstalled' : 'installed';
+      await notifyInstallationEvent({
+        eventType,
+        teamId,
+        workspaceName: getWorkspaceName(installation),
+        installerUserId,
+        installerEmail,
+      });
     },
     fetchInstallation: async (installQuery) => {
       const teamId = installQuery.teamId || installQuery.enterpriseId;
@@ -70,6 +80,10 @@ function getInstallerUserId(installation) {
 
 function getInstallationToken(installation) {
   return installation.bot?.token || installation.user?.token || installation.authedUser?.token || null;
+}
+
+function getWorkspaceName(installation) {
+  return installation.team?.name || installation.enterprise?.name || null;
 }
 
 async function resolveInstallerEmail(installation, installerUserId) {
