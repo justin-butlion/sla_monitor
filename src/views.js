@@ -26,7 +26,7 @@ function howToUseBlocks() {
       type: 'section',
       text: {
         type: 'mrkdwn',
-        text: '1. Add channels to monitor and set an SLA (hours to reply).\n2. The app tracks new messages sent from people outside your workspace in those channels.\n3. Add the SLA Monitor app to the channels you want to monitor.\n4. If a member of your workspace replies to the message (in thread) within the SLA window, the message passes; otherwise it fails.\n5. View and manage messages at the bottom section of this screen.\n6. Send an email to support@sla-monitor.com if you need any further support.',
+        text: '1. Add channels to monitor and set an SLA (hours to reply).\n2. Add the SLA Monitor app to the channels you want to monitor.\n3. SLA Monitor tracks new messages sent from people outside your workspace in those channels.\n4. If a member of your workspace replies to the message (in thread) within the SLA window, the message passes; otherwise it fails.\n5. (Optional) Set up pre-fail alerts (DM, email or webhook)\n6. View and manage messages that failed the SLA at the bottom section of this screen.\n7. Send an email to support@sla-monitor.com if you need any further support, or have any product feedback. We\'d love to hear from you.',
       },
     },
   ];
