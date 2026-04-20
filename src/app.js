@@ -1,5 +1,6 @@
 const { App, ExpressReceiver } = require('@slack/bolt');
 const { WebClient } = require('@slack/web-api');
+const express = require('express');
 const path = require('path');
 const db = require('./db');
 const { notifyInstallationEvent } = require('./installNotifications');
@@ -108,6 +109,7 @@ registerEventHandlers(app);
 
 // Serve basic marketing site and legal pages from /public without affecting Slack routes.
 const expressApp = receiver.app;
+expressApp.use(express.static(path.join(__dirname, '..', 'public')));
 expressApp.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, '..', 'public', 'index.html'));
 });
