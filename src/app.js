@@ -1,4 +1,5 @@
 const { App, ExpressReceiver } = require('@slack/bolt');
+const { WebClient } = require('@slack/web-api');
 const path = require('path');
 const db = require('./db');
 const { registerEventHandlers } = require('./events');
@@ -34,6 +35,7 @@ const receiver = new ExpressReceiver({
     'groups:history',
     'groups:read',
     'users:read',
+    'users:read.email',
     'chat:write',
     'im:write',
   ],
@@ -41,7 +43,9 @@ const receiver = new ExpressReceiver({
     storeInstallation: async (installation) => {
       const teamId = installation.team?.id || installation.enterprise?.id;
       if (!teamId) throw new Error('No team or enterprise id in installation');
-      await db.storeInstallation(teamId, installation);
+      const installerUserId = getInstallerUserId(installation);
+      const installerEmail = await resolveInstallerEmail(installation, installerUserId);
+      await db.storeInstallation(teamId, installation, installerEmail);
     },
     fetchInstallation: async (installQuery) => {
       const teamId = installQuery.teamId || installQuery.enterpriseId;
@@ -59,6 +63,28 @@ const receiver = new ExpressReceiver({
     directInstall: true,
   },
 });
+
+function getInstallerUserId(installation) {
+  return installation.user?.id || installation.authedUser?.id || null;
+}
+
+function getInstallationToken(installation) {
+  return installation.bot?.token || installation.user?.token || installation.authedUser?.token || null;
+}
+
+async function resolveInstallerEmail(installation, installerUserId) {
+  if (!installerUserId) return null;
+  const token = getInstallationToken(installation);
+  if (!token) return null;
+  try {
+    const web = new WebClient(token);
+    const info = await web.users.info({ user: installerUserId });
+    return db.normalizeEmail(info.user?.profile?.email || null);
+  } catch (err) {
+    console.warn(`Could not resolve installer email for user ${installerUserId}: ${err.message}`);
+    return null;
+  }
+}
 
 const app = new App({
   receiver,

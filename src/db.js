@@ -21,6 +21,9 @@ async function initSchema() {
         team_id VARCHAR(32) PRIMARY KEY,
         installation JSONB NOT NULL
       );
+      ALTER TABLE installations ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ;
+      ALTER TABLE installations ADD COLUMN IF NOT EXISTS last_installed_at TIMESTAMPTZ;
+      ALTER TABLE installations ADD COLUMN IF NOT EXISTS contact_email TEXT;
 
       CREATE TABLE IF NOT EXISTS channel_configs (
         id SERIAL PRIMARY KEY,
@@ -48,6 +51,22 @@ async function initSchema() {
         PRIMARY KEY (channel_id, message_ts)
       );
       ALTER TABLE pending_messages ADD COLUMN IF NOT EXISTS team_id VARCHAR(32);
+    `);
+    await client.query(`
+      UPDATE installations
+      SET created_at = NOW()
+      WHERE created_at IS NULL
+    `);
+    await client.query(`
+      UPDATE installations
+      SET last_installed_at = created_at
+      WHERE last_installed_at IS NULL
+    `);
+    await client.query(`
+      ALTER TABLE installations ALTER COLUMN created_at SET DEFAULT NOW();
+      ALTER TABLE installations ALTER COLUMN created_at SET NOT NULL;
+      ALTER TABLE installations ALTER COLUMN last_installed_at SET DEFAULT NOW();
+      ALTER TABLE installations ALTER COLUMN last_installed_at SET NOT NULL;
     `);
     const pendingHasTeam = await client.query(`
       SELECT 1 FROM information_schema.columns
@@ -121,11 +140,16 @@ async function initSchema() {
 }
 
 /** Store OAuth installation (bot token etc.) by team_id */
-async function storeInstallation(teamId, installation) {
+async function storeInstallation(teamId, installation, contactEmail = null) {
+  const normalizedContactEmail = normalizeEmail(contactEmail);
   await getPool().query(
-    `INSERT INTO installations (team_id, installation) VALUES ($1, $2)
-     ON CONFLICT (team_id) DO UPDATE SET installation = $2`,
-    [teamId, JSON.stringify(installation)]
+    `INSERT INTO installations (team_id, installation, contact_email, created_at, last_installed_at)
+     VALUES ($1, $2, $3, NOW(), NOW())
+     ON CONFLICT (team_id) DO UPDATE
+     SET installation = $2,
+         contact_email = COALESCE(EXCLUDED.contact_email, installations.contact_email),
+         last_installed_at = NOW()`,
+    [teamId, JSON.stringify(installation), normalizedContactEmail]
   );
 }
 
@@ -138,6 +162,26 @@ async function fetchInstallation(teamId) {
   const row = result.rows[0];
   if (!row) return null;
   return typeof row.installation === 'object' ? row.installation : JSON.parse(row.installation);
+}
+
+/** Fetch stored workspace contact email */
+async function getWorkspaceContactEmail(teamId) {
+  const result = await getPool().query(
+    'SELECT contact_email FROM installations WHERE team_id = $1',
+    [teamId]
+  );
+  return result.rows[0]?.contact_email || null;
+}
+
+/** Set workspace contact email directly on installation row */
+async function setWorkspaceContactEmail(teamId, email) {
+  const normalized = normalizeEmail(email);
+  await getPool().query(
+    `UPDATE installations
+     SET contact_email = $2
+     WHERE team_id = $1`,
+    [teamId, normalized]
+  );
 }
 
 /** Delete installation (uninstall) */
@@ -204,6 +248,12 @@ async function getConfigForChannelAtTime(teamId, channelId, messageTs) {
 function parseSlackTs(ts) {
   const parts = String(ts).split('.');
   return parseInt(parts[0], 10) + (parts[1] ? parseInt(parts[1].slice(0, 6), 10) / 1e6 : 0);
+}
+
+function normalizeEmail(email) {
+  if (typeof email !== 'string') return null;
+  const normalized = email.trim().toLowerCase();
+  return normalized.length > 0 ? normalized : null;
 }
 
 /** Add a new channel (or new config row); channelName, includeBotMessages, notifyUserIds stored; new messages use this config */
@@ -418,6 +468,8 @@ module.exports = {
   initSchema,
   storeInstallation,
   fetchInstallation,
+  getWorkspaceContactEmail,
+  setWorkspaceContactEmail,
   deleteInstallation,
   getAllInstallationTeamIds,
   getSetting,
@@ -442,4 +494,5 @@ module.exports = {
   hasAlertBeenSent,
   markAlertSent,
   parseSlackTs,
+  normalizeEmail,
 };
